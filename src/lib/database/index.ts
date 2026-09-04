@@ -3,12 +3,14 @@
 import { createClient } from '@/lib/supabase/server';
 import { Database } from '@/types/database';
 import { SupabaseClient } from '@supabase/supabase-js';
+import { unstable_noStore as noStore } from 'next/cache';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
 type Conversation = Database['public']['Tables']['conversations']['Row'];
 type Message = Database['public']['Tables']['messages']['Row'];
 
 export async function getProfile(userId: string): Promise<Profile | null> {
+  noStore();
   const supabase = (await createClient()) as SupabaseClient<Database>;
   const { data, error } = await supabase
     .from('profiles')
@@ -24,6 +26,7 @@ export async function getProfile(userId: string): Promise<Profile | null> {
 }
 
 export async function getConversations(): Promise<Conversation[]> {
+  noStore();
   const supabase = (await createClient()) as SupabaseClient<Database>;
   const { data, error } = await supabase
     .from('conversations')
@@ -42,6 +45,7 @@ export async function getPaginatedConversations(
   limit: number = 20,
   cursor?: string
 ): Promise<{ data: Conversation[]; nextCursor: string | null }> {
+  
   const supabase = (await createClient()) as SupabaseClient<Database>;
   
   let query = supabase
@@ -67,6 +71,7 @@ export async function getPaginatedConversations(
 }
 
 export async function searchConversations(query: string, limit: number = 20): Promise<Conversation[]> {
+  
   const supabase = (await createClient()) as SupabaseClient<Database>;
   const { data: { user } } = await supabase.auth.getUser();
   
@@ -115,6 +120,7 @@ export async function searchConversations(query: string, limit: number = 20): Pr
 }
 
 export async function getConversation(conversationId: string): Promise<Conversation | null> {
+  noStore();
   const supabase = (await createClient()) as SupabaseClient<Database>;
   const { data, error } = await supabase
     .from('conversations')
@@ -131,6 +137,7 @@ export async function getConversation(conversationId: string): Promise<Conversat
 }
 
 export async function createConversation(title: string): Promise<Conversation | null> {
+  
   const supabase = (await createClient()) as SupabaseClient<Database>;
   const { data: { user } } = await supabase.auth.getUser();
   
@@ -154,6 +161,7 @@ export async function createConversation(title: string): Promise<Conversation | 
 }
 
 export async function updateConversation(conversationId: string, updates: Partial<Database['public']['Tables']['conversations']['Update']>): Promise<Conversation | null> {
+  
   const supabase = (await createClient()) as SupabaseClient<Database>;
   const { data, error } = await supabase
     .from('conversations')
@@ -171,6 +179,7 @@ export async function updateConversation(conversationId: string, updates: Partia
 }
 
 export async function deleteConversation(conversationId: string): Promise<boolean> {
+  
   const supabase = (await createClient()) as SupabaseClient<Database>;
   const { error } = await supabase
     .from('conversations')
@@ -185,7 +194,9 @@ export async function deleteConversation(conversationId: string): Promise<boolea
   return true;
 }
 
+
 export async function getMessages(conversationId: string): Promise<Message[]> {
+  noStore();
   const supabase = (await createClient()) as SupabaseClient<Database>;
   const { data, error } = await supabase
     .from('messages')
@@ -203,6 +214,8 @@ export async function getMessages(conversationId: string): Promise<Message[]> {
 export async function createMessage(
   message: Omit<Database['public']['Tables']['messages']['Insert'], 'user_id'> & { user_id?: string }
 ): Promise<Message | null> {
+  console.log("=== CREATE MESSAGE CALLED ===", message.role, message.content.substring(0, 50));
+  
   const supabase = (await createClient()) as SupabaseClient<Database>;
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -236,6 +249,7 @@ export async function createMessage(
 }
 
 export async function deleteMessage(messageId: string): Promise<boolean> {
+  
   const supabase = (await createClient()) as SupabaseClient<Database>;
   
   // Note: RLS policies ("Users can delete own messages") will handle verifying ownership
@@ -263,6 +277,7 @@ export async function replaceAssistantMessage(
     metadata?: Database['public']['Tables']['messages']['Update']['metadata'];
   }
 ): Promise<Message | null> {
+  
   const supabase = (await createClient()) as SupabaseClient<Database>;
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -338,6 +353,7 @@ export async function updateProfile(
     avatar_url?: string | null;
   }
 ): Promise<Profile | null> {
+  
   const supabase = (await createClient()) as SupabaseClient<Database>;
   const { data: { user } } = await supabase.auth.getUser();
 

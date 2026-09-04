@@ -1,12 +1,21 @@
 'use client';
 
 import { useState, memo } from 'react';
-import { Copy, RefreshCw, Check } from 'lucide-react';
+import { 
+  Copy, 
+  RefreshCw, 
+  Check, 
+  BookOpen, 
+  GitFork, 
+  Volume2, 
+  ThumbsUp, 
+  ThumbsDown, 
+  Share, 
+  MoreHorizontal 
+} from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { cn } from '@/lib/utils';
-// Note: In a real app we'd use react-syntax-highlighter, but for simplicity in this milestone
-// we'll just style the basic pre/code tags from markdown
 
 interface MessageProps {
   id?: string;
@@ -46,117 +55,122 @@ function MessageComponent({ id, role, content, isLast, onRegenerate, timestamp, 
     }
   }
 
-  return (
-    <div className={cn(
-      "group w-full py-6 px-4 md:px-0",
-      isUser ? "bg-transparent" : "bg-transparent"
-    )}>
-      <div className="max-w-3xl mx-auto flex gap-4 md:gap-6">
-        {/* Avatar */}
-        <div className={cn(
-          "shrink-0 flex h-8 w-8 items-center justify-center rounded-lg mt-1",
-          isUser 
-            ? "bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300" 
-            : "bg-blue-600 text-white shadow-sm"
-        )}>
-          {isUser ? (
-            <span className="text-sm font-medium">U</span>
-          ) : (
-            <span className="text-sm font-bold">M</span>
+  // --- User Message ---
+  if (isUser) {
+    return (
+      <div className="group w-full py-4 px-4 md:px-0 flex justify-end">
+        <div className="max-w-[70%] flex flex-col items-end gap-1">
+          <div className="bg-blue-600 text-white px-5 py-3 rounded-2xl rounded-br-sm shadow-sm">
+            <div className="whitespace-pre-wrap break-words text-[15px] leading-relaxed">
+              {content}
+            </div>
+          </div>
+          {showTimestamp && timestamp && (
+            <div className="text-[11px] text-gray-400 mr-1 mt-1">
+              {formatTimestamp(timestamp)}
+            </div>
           )}
         </div>
+      </div>
+    );
+  }
 
-        {/* Content */}
-        <div className="flex-1 min-w-0 space-y-4">
-          <div className="flex items-center gap-2">
-            <span className="font-semibold text-sm text-gray-900 dark:text-gray-100">
-              {isUser ? 'You' : 'MyAI'}
-            </span>
-            {showTimestamp && timestamp && (
-              <span className="text-xs text-gray-400 dark:text-gray-500">
-                {formatTimestamp(timestamp)}
-              </span>
-            )}
-          </div>
-          
-          {isThinking ? (
-            <div className="flex items-center gap-1.5 h-6 opacity-70">
-              <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse [animation-delay:-0.3s]"></div>
-              <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse [animation-delay:-0.15s]"></div>
-              <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div>
-            </div>
-          ) : (
-            <div className="prose prose-slate dark:prose-invert max-w-none break-words
-              prose-p:leading-relaxed prose-pre:p-0 prose-pre:bg-transparent
-              prose-code:bg-gray-100 dark:prose-code:bg-gray-800 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md prose-code:font-normal
-              prose-pre:border prose-pre:border-gray-200 dark:prose-pre:border-gray-800 prose-pre:rounded-xl overflow-hidden"
-            >
-              <ReactMarkdown 
-                remarkPlugins={[remarkGfm]}
-                components={{
-                  pre({ children, ...props }) {
-                    // Extract code string for copy button
-                    let codeString = '';
-                    type ElementProps = { children?: React.ReactNode, className?: string };
-                    
-                    if (children && Array.isArray(children)) {
-                      codeString = String((children[0] as React.ReactElement<ElementProps>)?.props?.children || '');
-                    } else if (children && typeof children === 'object') {
-                      codeString = String((children as React.ReactElement<ElementProps>).props?.children || '');
-                    } else if (typeof children === 'string') {
-                      codeString = children;
-                    }
+  // --- AI Message ---
+  return (
+    <div className="group w-full py-6 px-4 md:px-0 flex justify-start">
+      <div className="max-w-4xl w-full flex gap-4">
+        {/* Avatar */}
+        <div className="shrink-0 flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white shadow-sm mt-1">
+          <SparklesIcon />
+        </div>
 
-                    // Extract language
-                    let language = '';
-                    if (children && typeof children === 'object' && (children as React.ReactElement<ElementProps>).props?.className) {
-                      const match = /language-(\w+)/.exec((children as React.ReactElement<ElementProps>).props.className || '');
-                      if (match) language = match[1];
-                    }
+        {/* Content Box */}
+        <div className="flex-1 min-w-0">
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-5 shadow-sm">
+            {isThinking ? (
+              <div className="flex items-center gap-1.5 h-6 opacity-70">
+                <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse [animation-delay:-0.3s]"></div>
+                <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse [animation-delay:-0.15s]"></div>
+                <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div>
+              </div>
+            ) : (
+              <div className="prose prose-slate dark:prose-invert max-w-none break-words
+                prose-p:leading-relaxed prose-pre:p-0 prose-pre:bg-transparent
+                prose-code:bg-gray-100 dark:prose-code:bg-gray-800 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md prose-code:font-normal
+                prose-pre:border prose-pre:border-gray-200 dark:prose-pre:border-gray-800 prose-pre:rounded-xl overflow-hidden text-[15px] min-h-[1.5rem]"
+              >
+                <ReactMarkdown 
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    pre({ children, ...props }) {
+                      let codeString = '';
+                      type ElementProps = { children?: React.ReactNode, className?: string };
+                      
+                      if (children && Array.isArray(children)) {
+                        codeString = String((children[0] as React.ReactElement<ElementProps>)?.props?.children || '');
+                      } else if (children && typeof children === 'object') {
+                        codeString = String((children as React.ReactElement<ElementProps>).props?.children || '');
+                      } else if (typeof children === 'string') {
+                        codeString = children;
+                      }
 
-                    return (
-                      <div className="relative my-4 group/code">
-                        <div className="flex items-center justify-between px-4 py-2 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 text-xs text-gray-500">
-                          <span className="uppercase font-semibold tracking-wider">{language || 'Code'}</span>
-                          <button 
-                            onClick={() => handleCopyCode(String(codeString))}
-                            className="flex items-center gap-1.5 hover:text-gray-900 dark:hover:text-gray-100 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded px-1"
-                            aria-label={`Copy ${language || ''} code`}
-                          >
-                            <Copy size={14} />
-                            <span>Copy</span>
-                          </button>
-                        </div>
-                        <div className="overflow-x-auto p-4 bg-gray-50/50 dark:bg-black/50 text-sm">
-                          <pre {...props} className="!m-0 !p-0 !bg-transparent">
+                      let language = '';
+                      if (children && typeof children === 'object' && (children as React.ReactElement<ElementProps>).props?.className) {
+                        const match = /language-(\w+)/.exec((children as React.ReactElement<ElementProps>).props.className || '');
+                        if (match) language = match[1];
+                      }
+
+                      return (
+                        <div className="relative my-4 group/code">
+                          <div className="flex items-center justify-between px-4 py-2 bg-gray-50 dark:bg-gray-950 border-b border-gray-200 dark:border-gray-800 text-xs text-gray-500">
+                            <span className="uppercase font-semibold tracking-wider">{language || 'Code'}</span>
+                            <button
+                              onClick={() => handleCopyCode(codeString)}
+                              className="flex items-center gap-1.5 hover:text-gray-900 dark:hover:text-gray-300 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded px-1"
+                              aria-label="Copy code"
+                            >
+                              <Copy size={14} />
+                              <span>Copy</span>
+                            </button>
+                          </div>
+                          <pre {...props} className="p-4 overflow-x-auto bg-gray-50 dark:bg-gray-950 text-sm">
                             {children}
                           </pre>
                         </div>
-                      </div>
-                    );
-                  }
-                }}
-              >
-                {content}
-              </ReactMarkdown>
+                      );
+                    }
+                  }}
+                >
+                  {content}
+                </ReactMarkdown>
+              </div>
+            )}
+          </div>
+          
+          {showTimestamp && timestamp && (
+            <div className="text-[11px] text-gray-400 mt-2 ml-2">
+              {formatTimestamp(timestamp)}
             </div>
           )}
 
-          {/* Message Actions */}
+          {/* AI Action Toolbar */}
           {!isThinking && (
-            <div className="flex items-center gap-1 pt-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
-              <ActionButton 
-                icon={copied ? Check : Copy} 
-                label={copied ? "Copied message" : "Copy message"} 
-                onClick={handleCopy} 
-              />
-              {!isUser && isLast && onRegenerate && id && (
-                <ActionButton 
-                  icon={RefreshCw} 
-                  label="Regenerate message" 
-                  onClick={() => onRegenerate(id)} 
-                />
+            <div className="flex flex-wrap items-center gap-1.5 pt-3 pl-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+              <ToolbarButton icon={BookOpen} label="View sources" text="View sources" />
+              <ToolbarButton icon={GitFork} label="Branch in new chat" text="Branch" />
+              <ToolbarButton icon={Volume2} label="Read aloud" text="Read aloud" />
+              
+              <div className="w-px h-4 bg-gray-300 dark:bg-gray-700 mx-1"></div>
+              
+              <ToolbarButton icon={ThumbsUp} label="Like response" />
+              <ToolbarButton icon={ThumbsDown} label="Dislike response" />
+              <ToolbarButton icon={Share} label="Share" onClick={handleCopy} active={copied} />
+              
+              {isLast && onRegenerate && id && (
+                <ToolbarButton icon={RefreshCw} label="Regenerate message" onClick={() => onRegenerate(id)} />
               )}
+              
+              <ToolbarButton icon={MoreHorizontal} label="More options" />
             </div>
           )}
         </div>
@@ -165,27 +179,49 @@ function MessageComponent({ id, role, content, isLast, onRegenerate, timestamp, 
   );
 }
 
-export const Message = memo(MessageComponent, (prev, next) => {
+function ToolbarButton({ 
+  icon: Icon, 
+  label, 
+  text,
+  onClick,
+  active
+}: { 
+  icon: React.ElementType, 
+  label: string, 
+  text?: string,
+  onClick?: () => void,
+  active?: boolean
+}) {
   return (
-    prev.id === next.id &&
-    prev.role === next.role &&
-    prev.content === next.content &&
-    prev.isLast === next.isLast &&
-    prev.timestamp === next.timestamp &&
-    prev.showTimestamp === next.showTimestamp &&
-    prev.isThinking === next.isThinking
-  );
-});
-
-function ActionButton({ icon: Icon, label, onClick }: { icon: React.ElementType, label: string, onClick?: () => void }) {
-  return (
-    <button 
+    <button
       onClick={onClick}
       title={label}
       aria-label={label}
-      className="p-1.5 text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+      className={cn(
+        "flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 text-xs font-medium",
+        active && "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20"
+      )}
     >
-      <Icon size={16} />
+      <Icon size={14} />
+      {text && <span className="hidden sm:inline">{text}</span>}
     </button>
   );
 }
+
+function SparklesIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M12 2L14.645 9.355L22 12L14.645 14.645L12 22L9.355 14.645L2 12L9.355 9.355L12 2Z" fill="currentColor"/>
+    </svg>
+  );
+}
+
+export const Message = memo(MessageComponent, (prev, next) => {
+  return (
+    prev.id === next.id &&
+    prev.content === next.content &&
+    prev.isLast === next.isLast &&
+    prev.isThinking === next.isThinking &&
+    prev.timestamp === next.timestamp
+  );
+});

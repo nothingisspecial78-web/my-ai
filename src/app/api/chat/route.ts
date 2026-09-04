@@ -9,6 +9,7 @@ import { acquireGenerationLock, releaseGenerationLock } from '@/lib/api/generati
 import { logger } from '@/lib/logger';
 import { Message } from '@/lib/ai/types';
 
+export const dynamic = 'force-dynamic';
 export async function POST(req: NextRequest) {
   const startTime = Date.now();
   let userId: string | undefined;

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Sparkles, Loader2, StopCircle } from 'lucide-react';
 import { ChatComposer } from '@/components/chat/ChatComposer';
+import { WelcomeScreen } from '@/components/chat/WelcomeScreen';
 import { Message } from '@/components/chat/Message';
 import { Database } from '@/types/database';
 import { createMessage, replaceAssistantMessage, updateConversation } from '@/lib/database';
@@ -28,6 +29,7 @@ export function ChatClient({ conversation, initialMessages }: ChatClientProps) {
   
   const abortControllerRef = useRef<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const isSendingRef = useRef(false);
   // Keep track of the original conversation slice being regenerated for safe rollback
   const regeneratingOriginalSliceRef = useRef<DBMessage[] | null>(null);
   // Track whether auto-title has been generated for this session
@@ -42,7 +44,7 @@ export function ChatClient({ conversation, initialMessages }: ChatClientProps) {
   useEffect(() => {
     // If the last message is from the user and we are not sending, generate a response automatically.
     // This handles the case where a new chat is created from the empty state and forwarded here.
-    if (messages.length > 0 && messages[messages.length - 1].role === 'user' && !isSending && !isThinking) {
+    if (messages.length > 0 && messages[messages.length - 1].role === 'user' && !isSendingRef.current && !isThinking) {
       triggerGeneration();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -65,13 +67,15 @@ export function ChatClient({ conversation, initialMessages }: ChatClientProps) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
+    isSendingRef.current = false;
     setIsSending(false);
     setIsThinking(false);
     setErrorMessage('Generation stopped.');
   };
 
   async function handleRegenerate(msgId: string) {
-    if (isSending) return;
+    if (isSendingRef.current) return;
+    isSendingRef.current = true;
     setIsSending(true);
     
     const targetMsg = messages.find(m => m.id === msgId);
@@ -109,6 +113,7 @@ export function ChatClient({ conversation, initialMessages }: ChatClientProps) {
   }
 
   async function triggerGeneration(regenerateMessageId?: string) {
+    if (!isSendingRef.current) isSendingRef.current = true;
     setIsSending(true);
     setIsThinking(true);
     setErrorMessage(null);
@@ -236,8 +241,6 @@ export function ChatClient({ conversation, initialMessages }: ChatClientProps) {
         setErrorMessage(msg);
       }
     } finally {
-      setIsSending(false);
-      setIsThinking(false);
       abortControllerRef.current = null;
 
       if (isRegen && regenerateMessageId) {
@@ -295,12 +298,17 @@ export function ChatClient({ conversation, initialMessages }: ChatClientProps) {
           setMessages(prev => prev.filter(m => m.id !== tempAiId));
         }
       }
+
+      isSendingRef.current = false;
+      setIsSending(false);
+      setIsThinking(false);
     }
   }
 
   const handleSend = async (text: string) => {
-    if (!text.trim() || isSending) return;
+    if (!text.trim() || isSendingRef.current) return;
     
+    isSendingRef.current = true;
     setIsSending(true);
     setErrorMessage(null);
 
@@ -345,69 +353,78 @@ export function ChatClient({ conversation, initialMessages }: ChatClientProps) {
       console.error(err);
       setMessages(prev => prev.filter(m => m.id !== tempUserId));
       setErrorMessage('Failed to send message. Please try again.');
+      isSendingRef.current = false;
       setIsSending(false);
     }
   };
 
   return (
     <div className="flex h-full w-full flex-col relative">
-      <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-gray-200 dark:border-gray-800 bg-white/80 dark:bg-gray-900/80 px-4 backdrop-blur-md hidden md:flex">
-        <div className="flex items-center gap-2">
-          <h1 className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate max-w-md">
+      <header className="sticky top-0 z-10 flex h-14 items-center justify-between bg-white/95 dark:bg-gray-900/95 px-4 backdrop-blur-md hidden md:flex">
+        <div className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 px-2 py-1.5 rounded-lg transition-colors">
+          <h1 className="text-[15px] font-semibold text-gray-900 dark:text-gray-100 truncate max-w-md flex items-center gap-2">
             {conversation.title}
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-50"><path d="m6 9 6 6 6-6"/></svg>
           </h1>
-          {isThinking && <Loader2 size={12} className="animate-spin text-gray-400" />}
+          {isThinking && <Loader2 size={12} className="animate-spin text-gray-400 ml-2" />}
         </div>
         <div className="flex items-center gap-2">
           {isSending && (
             <button 
               onClick={stopGeneration}
               aria-label="Stop generation"
-              className="flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors mr-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
+              className="flex items-center gap-1 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 px-2 py-1.5 rounded-lg transition-colors mr-2 focus:outline-none"
             >
               <StopCircle size={14} /> Stop
             </button>
           )}
-          <div className="flex items-center gap-1.5 rounded-full bg-blue-50 dark:bg-blue-900/20 px-2.5 py-1 border border-blue-100 dark:border-blue-800/30">
-            <Sparkles size={14} className="text-blue-500" />
-            <span className="text-xs font-medium text-blue-700 dark:text-blue-400">MyAI Premium</span>
-          </div>
+          <button className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors border border-gray-200 dark:border-gray-700">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" x2="12" y1="2" y2="15"/></svg>
+            Share
+          </button>
+          <button className="flex items-center justify-center w-8 h-8 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+          </button>
         </div>
       </header>
 
       <div className="flex-1 overflow-y-auto w-full">
-        <div className="flex flex-col pb-6">
-          {messages.map((msg, idx) => (
-            <Message 
-              key={msg.id} 
-              id={msg.id}
-              role={msg.role as 'user' | 'assistant' | 'system'} 
-              content={msg.content} 
-              isLast={idx === messages.length - 1}
-              onRegenerate={msg.role === 'assistant' ? handleRegenerate : undefined}
-              timestamp={msg.created_at}
-              showTimestamp={preferences.showTimestamps}
-              isThinking={isThinking && msg.role === 'assistant' && msg.content === ''}
-            />
-          ))}
-          {errorMessage && (
-            <div className="mx-auto my-4 max-w-2xl px-4 w-full" role="alert" aria-live="assertive">
-              <div className="rounded-md bg-red-50 p-4 dark:bg-red-900/30 border border-red-100 dark:border-red-800/50">
-                <div className="flex">
-                  <div className="ml-3">
-                    <h3 className="text-sm font-medium text-red-800 dark:text-red-300">
-                      Error
-                    </h3>
-                    <div className="mt-2 text-sm text-red-700 dark:text-red-400">
-                      <p>{errorMessage}</p>
+        {messages.length === 0 ? (
+          <WelcomeScreen onSuggestionClick={handleSend} disabled={isSending} />
+        ) : (
+          <div className="flex flex-col pb-6">
+            {messages.map((msg, idx) => (
+              <Message 
+                key={msg.id} 
+                id={msg.id}
+                role={msg.role as 'user' | 'assistant' | 'system'} 
+                content={msg.content} 
+                isLast={idx === messages.length - 1}
+                onRegenerate={msg.role === 'assistant' ? handleRegenerate : undefined}
+                timestamp={msg.created_at}
+                showTimestamp={preferences.showTimestamps}
+                isThinking={isThinking && msg.role === 'assistant' && msg.content === ''}
+              />
+            ))}
+            {errorMessage && (
+              <div className="mx-auto my-4 max-w-2xl px-4 w-full" role="alert" aria-live="assertive">
+                <div className="rounded-md bg-red-50 p-4 dark:bg-red-900/30 border border-red-100 dark:border-red-800/50">
+                  <div className="flex">
+                    <div className="ml-3">
+                      <h3 className="text-sm font-medium text-red-800 dark:text-red-300">
+                        Error
+                      </h3>
+                      <div className="mt-2 text-sm text-red-700 dark:text-red-400">
+                        <p>{errorMessage}</p>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
-          )}
-          <div ref={messagesEndRef} className="h-px w-full" />
-        </div>
+            )}
+            <div ref={messagesEndRef} className="h-px w-full" />
+          </div>
+        )}
       </div>
 
       <div className="w-full bg-gradient-to-t from-white via-white to-transparent dark:from-gray-900 dark:via-gray-900 dark:to-transparent mt-auto">
