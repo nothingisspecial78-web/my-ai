@@ -72,6 +72,7 @@ export function ChatClient({ conversation, initialMessages }: ChatClientProps) {
 
   async function handleRegenerate(msgId: string) {
     if (isSending) return;
+    setIsSending(true);
     
     const targetMsg = messages.find(m => m.id === msgId);
     if (!targetMsg || targetMsg.role !== 'assistant') return;
@@ -108,8 +109,6 @@ export function ChatClient({ conversation, initialMessages }: ChatClientProps) {
   }
 
   async function triggerGeneration(regenerateMessageId?: string) {
-    if (isSending) return;
-    
     setIsSending(true);
     setIsThinking(true);
     setErrorMessage(null);
@@ -302,6 +301,7 @@ export function ChatClient({ conversation, initialMessages }: ChatClientProps) {
   const handleSend = async (text: string) => {
     if (!text.trim() || isSending) return;
     
+    setIsSending(true);
     setErrorMessage(null);
 
     // 1. Optimistic User Message
@@ -339,11 +339,13 @@ export function ChatClient({ conversation, initialMessages }: ChatClientProps) {
       maybeAutoTitle(text);
       
       // 4. Trigger Generation (does NOT wait for title)
+      // triggerGeneration will manage its own finally block to clear isSending
       triggerGeneration();
     } catch (err) {
       console.error(err);
       setMessages(prev => prev.filter(m => m.id !== tempUserId));
       setErrorMessage('Failed to send message. Please try again.');
+      setIsSending(false);
     }
   };
 

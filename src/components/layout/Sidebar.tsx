@@ -67,7 +67,6 @@ export function Sidebar({ className, initialConversations = [], initialCursor = 
       if (newConvo) {
         setConversations(prev => [newConvo, ...prev]);
         router.push(`/chat/${newConvo.id}`);
-        router.refresh();
       }
     } finally {
       setIsCreating(false);

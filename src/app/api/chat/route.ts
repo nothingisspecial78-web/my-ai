@@ -14,6 +14,7 @@ export async function POST(req: NextRequest) {
   let userId: string | undefined;
   let conversationId: string | undefined;
   let lockToken: string | null = null;
+  let streamTookOwnership = false;
 
   try {
     // 1. Body size check
@@ -64,10 +65,11 @@ export async function POST(req: NextRequest) {
     }
 
     // 5. Concurrent generation lock
-    lockToken = await acquireGenerationLock(userId, conversationId);
-    if (!lockToken) {
-      return jsonError('Another response is currently being generated for this conversation.', 409);
+    const acquiredLockToken = await acquireGenerationLock(userId, conversationId);
+    if (!acquiredLockToken) {
+      return jsonError('The AI is already generating a response for this conversation. Please wait a moment.', 409);
     }
+    lockToken = acquiredLockToken;
 
     // 6. Validate conversation ownership via RLS
     const conversation = await getConversation(conversationId);
@@ -119,9 +121,16 @@ export async function POST(req: NextRequest) {
     // 10. Stream generation
     const currentUserId = userId;
     const currentConversationId = conversationId;
+    const streamLockToken = acquiredLockToken;
 
     const stream = new ReadableStream({
       async start(controller) {
+        // Stream aborted callback handler
+        const abortHandler = () => {
+          // Break is handled in the loop, but we can also force close if needed.
+        };
+        req.signal.addEventListener('abort', abortHandler);
+
         try {
           const generator = provider.generateStream(contextMessages, {
             userId: currentUserId,
@@ -156,16 +165,20 @@ export async function POST(req: NextRequest) {
             controller.enqueue(new TextEncoder().encode(JSON.stringify(errorEvent) + '\n'));
           }
         } finally {
-          if (lockToken) {
-            await releaseGenerationLock(currentUserId, currentConversationId, lockToken);
-          }
-          controller.close();
+          req.signal.removeEventListener('abort', abortHandler);
+          await releaseGenerationLock(currentUserId, currentConversationId, streamLockToken);
+          try { controller.close(); } catch {}
         }
       },
+      cancel() {
+        // Handle client disconnect explicitly
+        releaseGenerationLock(currentUserId, currentConversationId, streamLockToken).catch(err => {
+          logger.error('api.chat', 'Failed to release lock on stream cancel', { error: String(err) });
+        });
+      }
     });
 
-    // Lock will be released in the stream's finally block
-    lockToken = null;
+    streamTookOwnership = true;
 
     return new Response(stream, {
       headers: {
@@ -184,8 +197,11 @@ export async function POST(req: NextRequest) {
     return jsonError('Internal server error', 500);
   } finally {
     // Safety: release lock if we exit before the stream takes ownership
-    if (lockToken && userId && conversationId) {
-      await releaseGenerationLock(userId, conversationId, lockToken);
+    // or if an error occurred before stream creation
+    if (lockToken && typeof streamTookOwnership === 'undefined') {
+      await releaseGenerationLock(userId as string, conversationId as string, lockToken);
+    } else if (lockToken && !streamTookOwnership) {
+      await releaseGenerationLock(userId as string, conversationId as string, lockToken);
     }
   }
 }
