@@ -1,36 +1,69 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# MyAI
 
-## Getting Started
+MyAI is a modern personal AI assistant, built with Next.js, React, Tailwind CSS, shadcn/ui, and Supabase.
 
-First, run the development server:
+## Architecture & Clean Separation
 
+This project follows a clean, modular architecture:
+
+- `src/app`: Next.js App Router for routes, pages, and API endpoints.
+- `src/components`: UI components organized by domain.
+- `src/lib/ai`: Provider-agnostic AI integration layer.
+- `src/lib/supabase`: Supabase database and authentication clients.
+- `src/lib/auth`: Authentication helpers and middleware.
+- `src/lib/database`: Database queries and data access logic.
+- `src/hooks`: Custom React hooks for state and side-effects.
+- `src/types`: Global TypeScript types and interfaces.
+- `supabase/migrations`: SQL migrations for the Supabase database.
+
+## Setup & Configuration
+
+### Prerequisites
+- Node.js (v18+)
+- Supabase account & project
+
+### 1. Install Dependencies
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Environment Variables
+Copy `.env.example` to `.env.local`:
+```bash
+cp .env.example .env.local
+```
+Fill in the following variables:
+- `NEXT_PUBLIC_SUPABASE_URL`: Your Supabase project URL.
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Your Supabase anonymous key.
+- `AI_PROVIDER_API_KEY`: API key for your chosen AI provider (e.g., Gemini).
+- `AI_MODE`: Set to `mock` for local development without an API key, or leave blank to use the real provider.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 3. Supabase Configuration & Migrations
+The database schema uses PostgreSQL with strict Row Level Security (RLS).
+1. Go to your Supabase project SQL Editor.
+2. Run the migration script located in `supabase/migrations/20260831000000_initial_schema.sql`.
+3. This script will automatically create the tables, indexes, triggers, and secure RLS policies.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 4. Authentication Setup
+MyAI uses Supabase Auth.
+- Users can sign up via `/signup`.
+- The database triggers an automatic profile creation on user signup.
+- The Next.js middleware in `src/middleware.ts` protects private routes (like `/chat`) and redirects unauthenticated users to `/login`.
 
-## Learn More
+### 5. Security & Row Level Security (RLS)
+Security is implemented primarily at the database layer using Postgres RLS.
+- **Profiles:** Users can only view and update their own profile.
+- **Conversations:** Users can only view, insert, update, and delete conversations where `user_id` matches their authenticated UID.
+- **Messages:** Policies strictly verify that a user can only interact with messages linked to a conversation they own. A subquery checks `auth.uid() = conversations.user_id`.
 
-To learn more about Next.js, take a look at the following resources:
+**Security Verification Example:**
+1. User A logs in. They can fetch conversations because `auth.uid() = user_id`.
+2. User A attempts to read User B's conversation. The `SELECT` policy fails because the `user_id` does not match, returning no rows.
+3. User A attempts to insert a message into User B's conversation. The `INSERT` policy `WITH CHECK` fails because the subquery verifies the conversation does not belong to User A.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### 6. Local Development
+Start the Next.js development server:
+```bash
+npm run dev
+```
+Open [http://localhost:3000](http://localhost:3000) with your browser.

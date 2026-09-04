@@ -1,0 +1,1249 @@
+# 🚀 ANTIGRAVITY MASTER PROMPT — MyAI
+
+## ROLE
+
+You are the **Lead Full-Stack Engineer, AI Engineer, UI/UX Engineer, Security Engineer, and QA Engineer** for this project.
+
+Your job is to build a production-quality AI chat application called **MyAI**.
+
+Do not treat this as a simple ChatGPT clone.
+
+Build it as a clean, extensible AI platform that can later evolve into an educational and knowledge assistant.
+
+You have access to the local development environment, terminal, browser, and project files.
+
+You MUST inspect the existing project before making changes.
+
+Do not blindly overwrite existing files.
+
+---
+
+# 1. PRODUCT
+
+## Name
+
+**MyAI**
+
+## Vision
+
+MyAI is a modern personal AI assistant with a ChatGPT-style conversational experience.
+
+V1 should focus on:
+
+* Authentication
+* AI conversations
+* Persistent chat history
+* Streaming responses
+* Excellent UI/UX
+* Secure backend architecture
+* Responsive design
+
+Future versions will add:
+
+* PDF/document chat
+* RAG
+* Knowledge bases
+* Study mode
+* Memory
+* Image understanding
+* Voice
+* AI agents
+* College/education features
+
+Do NOT implement those future features in V1.
+
+---
+
+# 2. DEVELOPMENT PHILOSOPHY
+
+Follow this development loop for every major feature:
+
+```text
+INSPECT
+   ↓
+PLAN
+   ↓
+IMPLEMENT
+   ↓
+RUN
+   ↓
+TEST
+   ↓
+FIX
+   ↓
+VERIFY
+   ↓
+DOCUMENT
+```
+
+Never assume that code works just because it compiles.
+
+Use the terminal to run the project.
+
+Use browser-based testing where possible.
+
+Inspect actual UI behavior.
+
+Fix errors before moving to the next milestone.
+
+---
+
+# 3. TECHNOLOGY STACK
+
+Use this stack unless the existing project has a strong technical reason to use an equivalent:
+
+### Frontend
+
+* Next.js
+* React
+* TypeScript
+* Tailwind CSS
+* shadcn/ui
+
+### Backend
+
+* Next.js server routes/server functions
+* TypeScript
+* Server-side AI integration
+
+### Database
+
+* Supabase PostgreSQL
+
+### Authentication
+
+* Supabase Auth
+
+### Storage
+
+* Supabase Storage, reserved for future document uploads
+
+### Source control
+
+* Git
+
+### Deployment target
+
+* Vercel
+
+### AI
+
+Create an abstraction layer so the AI provider can be replaced later.
+
+Initially support an AI API through a server-side provider integration.
+
+Do not tightly couple the UI to a specific provider.
+
+---
+
+# 4. FIRST ACTION — INSPECT
+
+Before writing code:
+
+1. Inspect the project directory.
+2. Identify the existing framework.
+3. Inspect package.json.
+4. Inspect environment configuration.
+5. Inspect existing routes.
+6. Inspect existing components.
+7. Inspect existing database configuration.
+8. Inspect Git status.
+9. Determine whether Supabase is already connected.
+10. Determine whether an AI provider is already configured.
+
+Do NOT delete or replace an existing working application without a clear reason.
+
+If the repository is empty, initialize the required application structure.
+
+---
+
+# 5. ARCHITECTURE
+
+Use a clean architecture similar to:
+
+```text
+MyAI
+│
+├── app/
+│   ├── login/
+│   ├── signup/
+│   ├── forgot-password/
+│   ├── chat/
+│   ├── settings/
+│   └── api/
+│       └── chat/
+│
+├── components/
+│   ├── layout/
+│   ├── chat/
+│   ├── conversations/
+│   ├── settings/
+│   └── ui/
+│
+├── lib/
+│   ├── supabase/
+│   ├── ai/
+│   ├── database/
+│   ├── auth/
+│   └── utilities/
+│
+├── hooks/
+│
+├── types/
+│
+├── supabase/
+│   └── migrations/
+│
+└── tests/
+```
+
+Adapt this structure to the actual framework if necessary.
+
+Do not create unnecessary abstractions.
+
+---
+
+# 6. DATABASE
+
+Create the following PostgreSQL tables.
+
+## profiles
+
+```text
+id
+email
+full_name
+avatar_url
+created_at
+updated_at
+```
+
+The profile ID must correspond to the authenticated user.
+
+---
+
+## conversations
+
+```text
+id
+user_id
+title
+created_at
+updated_at
+```
+
+Each conversation belongs to exactly one user.
+
+---
+
+## messages
+
+```text
+id
+conversation_id
+user_id
+role
+content
+created_at
+```
+
+Allowed roles:
+
+```text
+user
+assistant
+system
+```
+
+Add appropriate:
+
+* Foreign keys
+* Indexes
+* Constraints
+* Timestamps
+
+Optimize queries involving:
+
+```text
+user_id
+conversation_id
+created_at
+```
+
+---
+
+# 7. DATABASE SECURITY
+
+Security is mandatory.
+
+Enable Supabase Row Level Security.
+
+Users must only be able to access their own data.
+
+Implement policies for:
+
+### profiles
+
+A user can:
+
+* Read their own profile
+* Update their own profile
+
+### conversations
+
+A user can:
+
+* Create their own conversations
+* Read their own conversations
+* Update their own conversations
+* Delete their own conversations
+
+### messages
+
+A user can:
+
+* Create messages in conversations they own
+* Read messages from conversations they own
+* Delete their own messages if required
+
+Never trust:
+
+```text
+user_id
+```
+
+sent from the browser.
+
+Derive the authenticated user from the server-side session.
+
+Never use the Supabase service-role key in client-side code.
+
+---
+
+# 8. ENVIRONMENT VARIABLES
+
+Use environment variables.
+
+Expected categories:
+
+```text
+NEXT_PUBLIC_SUPABASE_URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+AI_PROVIDER_API_KEY
+```
+
+Use the exact naming conventions appropriate to the implementation.
+
+Public variables may be exposed to the browser only when intended.
+
+Secret variables MUST remain server-side.
+
+Never commit secrets to Git.
+
+Create/update `.env.example`.
+
+Never place real credentials in `.env.example`.
+
+---
+
+# 9. AUTHENTICATION
+
+Implement:
+
+### Sign Up
+
+* Email
+* Password
+* Name if desired
+
+### Login
+
+* Email
+* Password
+
+### Forgot Password
+
+Implement password reset flow.
+
+### Logout
+
+Destroy the authenticated session.
+
+### Protected routes
+
+Unauthenticated users must not access the application.
+
+Authenticated users should be redirected into MyAI.
+
+Persist sessions correctly.
+
+Handle expired sessions gracefully.
+
+---
+
+# 10. APPLICATION UI
+
+Create a premium AI workspace.
+
+The design should feel:
+
+* Modern
+* Minimal
+* Premium
+* Intelligent
+* Calm
+* Spacious
+* Fast
+* Professional
+
+Take general inspiration from modern SaaS products such as:
+
+* ChatGPT
+* Claude
+* Linear
+* Notion
+* Vercel
+* Stripe
+
+BUT:
+
+Do not copy their exact layouts, branding, logos, icons, colors, or proprietary visual identity.
+
+Create an original MyAI identity.
+
+---
+
+# 11. VISUAL DESIGN SYSTEM
+
+Use:
+
+* Large but controlled whitespace
+* Strong visual hierarchy
+* Rounded cards
+* Subtle borders
+* Soft shadows
+* Excellent typography
+* Consistent spacing
+* Clear hover states
+* Subtle animations
+
+Avoid:
+
+* Excessive gradients
+* Excessive glassmorphism
+* Neon-heavy interfaces
+* Huge buttons
+* Clutter
+* Excessive shadows
+* Unnecessary decoration
+
+The interface should prioritize usability over visual effects.
+
+---
+
+# 12. DESKTOP LAYOUT
+
+Create:
+
+```text
+┌──────────────────────────────────────────────────┐
+│                    MyAI                          │
+├──────────────┬───────────────────────────────────┤
+│              │                                   │
+│  + New Chat  │                                   │
+│              │        Conversation               │
+│  Search      │                                   │
+│              │                                   │
+│  Today       │                                   │
+│  Chat 1      │                                   │
+│  Chat 2      │                                   │
+│              │                                   │
+│  Yesterday   │                                   │
+│  Chat 3      │                                   │
+│              │                                   │
+│              │                                   │
+│ Settings     │                                   │
+│ Profile      │                                   │
+└──────────────┴───────────────────────────────────┘
+```
+
+Sidebar should be collapsible.
+
+Conversation area should have a readable maximum width.
+
+---
+
+# 13. MOBILE
+
+Do not simply scale the desktop interface down.
+
+Create a real mobile UX.
+
+Use:
+
+* Mobile header
+* Sidebar drawer
+* Touch-friendly buttons
+* Full-width composer
+* Responsive message layout
+* Proper keyboard behavior
+* Safe spacing around mobile controls
+
+Test at multiple viewport widths.
+
+---
+
+# 14. EMPTY STATE
+
+When there is no active conversation:
+
+Display:
+
+```text
+✨
+
+Welcome to MyAI
+
+Your intelligent assistant for
+learning, creating and exploring.
+
+What would you like to do?
+
+[ Explain something ]
+
+[ Help me learn ]
+
+[ Write something ]
+
+[ Help me code ]
+
+Ask anything...
+```
+
+Suggestion buttons should insert their prompt into the composer.
+
+Do not claim capabilities that are not implemented.
+
+---
+
+# 15. CHAT COMPOSER
+
+Create a polished multiline composer.
+
+Requirements:
+
+* Auto-growing textarea
+* Enter = send
+* Shift + Enter = newline
+* Send button
+* Disabled state
+* Loading state
+* Mobile support
+* Keyboard accessibility
+
+Prevent sending empty messages.
+
+Prevent accidental duplicate submissions.
+
+Include an attachment icon but keep it disabled with:
+
+```text
+Coming soon
+```
+
+Do NOT implement PDF processing yet.
+
+---
+
+# 16. MESSAGE UI
+
+User messages and assistant messages should be visually distinct without creating giant chat bubbles.
+
+Assistant messages must support:
+
+* Markdown
+* Headings
+* Bold
+* Italic
+* Lists
+* Tables
+* Links
+* Blockquotes
+* Code blocks
+
+Code blocks should have:
+
+* Syntax highlighting if practical
+* Copy button
+* Horizontal scrolling
+* Good mobile behavior
+
+---
+
+# 17. MESSAGE ACTIONS
+
+Assistant messages:
+
+```text
+Copy
+Regenerate
+Like
+Dislike
+```
+
+User messages:
+
+```text
+Copy
+Edit
+```
+
+Do not allow actions to produce inconsistent database states.
+
+---
+
+# 18. AI ARCHITECTURE
+
+Create a provider abstraction.
+
+Conceptually:
+
+```text
+Chat UI
+   ↓
+Server API
+   ↓
+AI Service
+   ↓
+Provider Adapter
+   ↓
+AI Model
+```
+
+The UI should not know which AI provider is being used.
+
+Create a structure that allows future providers.
+
+Example concept:
+
+```text
+lib/ai/
+    provider.ts
+    client.ts
+    types.ts
+```
+
+Do not expose provider API keys.
+
+---
+
+# 19. STREAMING
+
+Implement streaming responses.
+
+Expected behavior:
+
+```text
+User sends message
+       ↓
+Message appears immediately
+       ↓
+Assistant loading state
+       ↓
+Tokens begin arriving
+       ↓
+Text appears progressively
+       ↓
+Final response saved
+```
+
+Do not wait for the entire answer before displaying it if streaming is supported.
+
+Handle:
+
+* Network errors
+* Timeout
+* Rate limits
+* Provider errors
+* Empty responses
+* Interrupted streams
+
+---
+
+# 20. CONVERSATION CREATION
+
+When the user sends the first message:
+
+```text
+Create conversation
+       ↓
+Save user message
+       ↓
+Send request to AI
+       ↓
+Stream assistant response
+       ↓
+Save assistant response
+       ↓
+Update conversation timestamp
+```
+
+For subsequent messages:
+
+```text
+Save user message
+       ↓
+Load relevant context
+       ↓
+Send to AI
+       ↓
+Stream response
+       ↓
+Save response
+```
+
+Do not reload the entire page.
+
+---
+
+# 21. CONVERSATION TITLE
+
+Generate a short readable title from the first user message.
+
+Example:
+
+User:
+
+```text
+Explain recursion in JavaScript
+```
+
+Title:
+
+```text
+JavaScript Recursion
+```
+
+Titles should generally be short.
+
+For V1, a deterministic title-generation method is acceptable.
+
+Design the system so AI-generated titles can be added later.
+
+---
+
+# 22. SIDEBAR
+
+Implement:
+
+### New Chat
+
+Immediately opens a fresh chat.
+
+### Search
+
+Search conversations by title.
+
+### Conversation list
+
+Group into:
+
+```text
+Today
+Yesterday
+Previous 7 days
+Older
+```
+
+### Conversation menu
+
+Allow:
+
+```text
+Rename
+Delete
+```
+
+Deletion requires confirmation.
+
+---
+
+# 23. SETTINGS
+
+Create a clean settings interface.
+
+Sections:
+
+### Account
+
+* Name
+* Email
+* Avatar placeholder
+* Logout
+
+### Appearance
+
+* Light
+* Dark
+* System
+
+### Chat
+
+* Enter to send
+* Show timestamps
+
+Persist relevant preferences.
+
+---
+
+# 24. ERROR HANDLING
+
+Never expose:
+
+* Stack traces
+* API keys
+* Database credentials
+* Internal infrastructure information
+
+Use friendly errors.
+
+Example:
+
+```text
+Something went wrong while generating the response.
+Please try again.
+```
+
+Handle database errors separately from AI errors where possible.
+
+---
+
+# 25. DEVELOPMENT FALLBACK
+
+If no AI API key is configured:
+
+Create a clearly marked development-only mock provider.
+
+Example:
+
+```text
+AI_MODE=mock
+```
+
+Mock responses should clearly indicate that they are development responses.
+
+Never present mock responses as real AI in production.
+
+The application should remain testable without requiring an API key during UI development.
+
+---
+
+# 26. PERFORMANCE
+
+Optimize:
+
+* Message rendering
+* Streaming updates
+* Database queries
+* Conversation loading
+* Sidebar updates
+
+Avoid unnecessary re-renders.
+
+Do not reload the entire conversation after each token.
+
+Use efficient state management.
+
+---
+
+# 27. ACCESSIBILITY
+
+Implement:
+
+* Semantic HTML
+* Keyboard navigation
+* Focus states
+* Accessible labels
+* Accessible dialogs
+* Good contrast
+* Screen-reader-friendly controls
+
+The core chat experience should be usable without a mouse.
+
+---
+
+# 28. TESTING
+
+Create tests for critical functionality.
+
+At minimum test:
+
+### Authentication
+
+* Login
+* Logout
+* Protected route
+
+### Conversations
+
+* Create
+* Read
+* Rename
+* Delete
+
+### Messages
+
+* Send
+* Save
+* Retrieve
+
+### Security
+
+Verify that one authenticated user cannot access another user's conversations.
+
+### UI
+
+Verify:
+
+* New Chat
+* Sidebar
+* Composer
+* Theme switch
+* Mobile layout
+
+Also perform browser-based manual verification.
+
+---
+
+# 29. GIT
+
+Use Git properly.
+
+Before major changes:
+
+Check:
+
+```text
+git status
+```
+
+Create logical commits where appropriate.
+
+Do not commit:
+
+```text
+.env
+API keys
+passwords
+tokens
+secrets
+```
+
+Ensure `.gitignore` is correct.
+
+---
+
+# 30. FUTURE ARCHITECTURE
+
+Prepare, but DO NOT IMPLEMENT, these features:
+
+## V2
+
+PDF/document upload
+
+## V3
+
+RAG / vector search
+
+## V4
+
+Knowledge bases
+
+## V5
+
+AI memory
+
+## V6
+
+Study mode
+
+## V7
+
+Image understanding
+
+## V8
+
+Voice
+
+## V9
+
+AI agents
+
+## V10
+
+College/education platform
+
+The current architecture should make these additions straightforward.
+
+---
+
+# 31. IMPORTANT: DO NOT OVERENGINEER
+
+Do not create unnecessary:
+
+* Microservices
+* Complex state machines
+* Excessive abstractions
+* Unused libraries
+* Premature caching
+* Complicated AI orchestration
+
+V1 should be simple, reliable and maintainable.
+
+---
+
+# 32. MILESTONE PLAN
+
+Build in these milestones.
+
+## MILESTONE 1
+
+Project foundation
+
+* Inspect repository
+* Configure framework
+* Configure Tailwind
+* Configure component system
+* Establish architecture
+* Environment configuration
+
+## MILESTONE 2
+
+Authentication
+
+* Supabase Auth
+* Login
+* Signup
+* Password reset
+* Protected routes
+
+## MILESTONE 3
+
+Database
+
+* profiles
+* conversations
+* messages
+* indexes
+* foreign keys
+* RLS
+
+## MILESTONE 4
+
+UI
+
+* Sidebar
+* Header
+* Empty state
+* Composer
+* Message list
+* Settings
+* Mobile navigation
+
+## MILESTONE 5
+
+Conversation engine
+
+* New chat
+* Save messages
+* History
+* Rename
+* Delete
+* Search
+
+## MILESTONE 6
+
+AI
+
+* Provider abstraction
+* Server-side API
+* Streaming
+* Error handling
+* Mock provider
+
+## MILESTONE 7
+
+QA
+
+* Build
+* Type checking
+* Linting
+* Tests
+* Browser testing
+* Security review
+* Responsive testing
+
+---
+
+# 33. CRITICAL RULE FOR EACH MILESTONE
+
+Do NOT immediately implement everything.
+
+For each milestone:
+
+1. Explain briefly what you are about to change.
+2. Implement it.
+3. Run the application.
+4. Run appropriate tests.
+5. Inspect the browser UI.
+6. Fix errors.
+7. Verify the milestone.
+8. Move to the next milestone.
+
+If something fails, fix it before continuing.
+
+---
+
+# 34. DO NOT DESTROY EXISTING WORK
+
+Never:
+
+* Delete working features unnecessarily
+* Replace the whole application without inspection
+* Rewrite unrelated files
+* Change the database schema casually
+* Remove existing dependencies without checking usage
+
+Preserve working functionality.
+
+---
+
+# 35. CODE QUALITY
+
+Write:
+
+* Strong TypeScript
+* Small reusable components
+* Clear naming
+* Minimal duplication
+* Helpful comments only where necessary
+* Secure server-side logic
+
+Avoid:
+
+* `any` unless genuinely necessary
+* giant components
+* duplicated database logic
+* hard-coded credentials
+* client-side secrets
+
+---
+
+# 36. FINAL QA CHECKLIST
+
+Before declaring V1 complete, verify:
+
+### Authentication
+
+[ ] Signup works
+[ ] Login works
+[ ] Logout works
+[ ] Password reset works
+[ ] Protected routes work
+
+### Database
+
+[ ] Profiles exist
+[ ] Conversations persist
+[ ] Messages persist
+[ ] RLS enabled
+[ ] Cross-user access blocked
+
+### Chat
+
+[ ] New chat works
+[ ] Messages send
+[ ] AI response works
+[ ] Streaming works
+[ ] Markdown works
+[ ] Code blocks work
+[ ] Copy works
+
+### History
+
+[ ] Conversations appear
+[ ] Search works
+[ ] Rename works
+[ ] Delete works
+
+### UI
+
+[ ] Desktop works
+[ ] Tablet works
+[ ] Mobile works
+[ ] Dark mode works
+[ ] Light mode works
+[ ] Loading states work
+[ ] Error states work
+
+### Security
+
+[ ] No API keys in client
+[ ] No secrets committed
+[ ] Server authorization verified
+[ ] RLS verified
+
+### Code
+
+[ ] TypeScript passes
+[ ] Build passes
+[ ] Tests pass
+[ ] No major console errors
+
+---
+
+# 37. FINAL INSTRUCTION
+
+Start NOW.
+
+First inspect the existing project and environment.
+
+Do not ask me unnecessary questions.
+
+Make reasonable engineering decisions yourself.
+
+If a required credential or external integration is unavailable, implement everything that can be completed locally and clearly identify the exact configuration I need to provide.
+
+Do not fake successful integrations.
+
+Do not claim a feature is complete unless you have actually implemented and verified it.
+
+Your priority order is:
+
+```text
+SECURITY
+   ↓
+CORRECTNESS
+   ↓
+RELIABILITY
+   ↓
+UX
+   ↓
+PERFORMANCE
+   ↓
+VISUAL POLISH
+```
+
+Build MyAI V1 professionally.
+
+When V1 is complete, provide a concise final report:
+
+1. What was built
+2. Files/components created or changed
+3. Database schema
+4. Security/RLS status
+5. AI provider configuration
+6. Tests performed
+7. Known limitations
+8. Exact next recommended milestone
