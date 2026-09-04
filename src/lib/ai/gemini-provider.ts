@@ -32,14 +32,34 @@ export class GeminiProvider implements AIProvider {
     // Start stream
     yield { type: 'start' };
 
+    let responseStream;
+    let retries = 0;
+    const maxRetries = 3;
+    
+    while (true) {
+      try {
+        responseStream = await this.client.models.generateContentStream({
+          model: this.model,
+          contents,
+          config: {
+            systemInstruction: SYSTEM_INSTRUCTION,
+          },
+        });
+        break;
+      } catch (err: any) {
+        if (
+          retries < maxRetries &&
+          (err.status === 429 || err.status === 503 || err.message?.toLowerCase().includes('quota') || err.message?.toLowerCase().includes('rate limit'))
+        ) {
+          retries++;
+          await new Promise(resolve => setTimeout(resolve, Math.pow(2, retries - 1) * 1000));
+        } else {
+          throw err;
+        }
+      }
+    }
+
     try {
-      const responseStream = await this.client.models.generateContentStream({
-        model: this.model,
-        contents,
-        config: {
-          systemInstruction: SYSTEM_INSTRUCTION,
-        },
-      });
 
       let inputTokens = undefined;
       let outputTokens = undefined;

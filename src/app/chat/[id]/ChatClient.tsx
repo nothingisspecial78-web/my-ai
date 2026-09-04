@@ -452,6 +452,17 @@ export function ChatClient({ conversation, initialMessages }: ChatClientProps) {
                       <div className="mt-2 text-sm text-red-700 dark:text-red-400">
                         <p>{errorMessage}</p>
                       </div>
+                      {!isSending && !isThinking && messages.length > 0 && messages[messages.length - 1].role === 'user' && (
+                        <div className="mt-3">
+                          <button
+                            type="button"
+                            onClick={() => triggerGeneration()}
+                            className="text-sm font-medium text-red-800 dark:text-red-300 underline hover:text-red-700 dark:hover:text-red-200"
+                          >
+                            Retry generation
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
