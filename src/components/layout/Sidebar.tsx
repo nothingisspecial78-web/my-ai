@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { 
@@ -20,7 +20,7 @@ import { createClient } from '@/lib/supabase/client';
 import { SettingsModal } from '@/components/settings/SettingsModal';
 import { Database } from '@/types/database';
 import { groupConversations } from '@/lib/utilities/date';
-import { getPaginatedConversations, createConversation, updateConversation, deleteConversation, searchConversations } from '@/lib/database';
+import { getPaginatedConversations, updateConversation, deleteConversation, searchConversations } from '@/lib/database';
 
 type Conversation = Database['public']['Tables']['conversations']['Row'];
 
@@ -31,7 +31,6 @@ export function Sidebar({ initialConversations = [], initialCursor = null }: { i
   const [cursor, setCursor] = useState<string | null>(initialCursor);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   
-  const [isCreating, setIsCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -102,18 +101,9 @@ export function Sidebar({ initialConversations = [], initialCursor = null }: { i
     }
   };
 
-  const handleNewChat = async () => {
-    if (isCreating) return;
-    setIsCreating(true);
-    try {
-      const newConvo = await createConversation('New conversation');
-      if (newConvo) {
-        setConversations(prev => [newConvo, ...prev]);
-        router.push(`/chat/${newConvo.id}`);
-      }
-    } finally {
-      setIsCreating(false);
-    }
+  const handleNewChat = () => {
+    router.push('/chat');
+    setIsMobileOpen(false);
   };
 
   useEffect(() => {

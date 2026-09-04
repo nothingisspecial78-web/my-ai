@@ -190,7 +190,7 @@ export async function POST(req: NextRequest) {
     });
 
   } catch (error) {
-    logger.error('api.chat', 'Unhandled error', {
+    console.error('!!! UNHANDLED ERROR IN ROUTE.TS !!!', error); logger.error('api.chat', 'Unhandled error', {
       userId,
       conversationId,
       error: sanitizeErrorForClient(error),

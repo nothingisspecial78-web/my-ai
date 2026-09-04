@@ -34,6 +34,8 @@ export function ChatClient({ conversation, initialMessages }: ChatClientProps) {
   const regeneratingOriginalSliceRef = useRef<DBMessage[] | null>(null);
   // Track whether auto-title has been generated for this session
   const autoTitleDoneRef = useRef(false);
+  // Track which message ID we've already auto-triggered for
+  const autoTriggeredMessageId = useRef<string | null>(null);
 
   const { preferences } = useChatPreferences();
 
@@ -45,9 +47,22 @@ export function ChatClient({ conversation, initialMessages }: ChatClientProps) {
     // If the last message is from the user and we are not sending, generate a response automatically.
     // This handles the case where a new chat is created from the empty state and forwarded here.
     if (messages.length > 0 && messages[messages.length - 1].role === 'user' && !isSendingRef.current && !isThinking) {
-      triggerGeneration();
+      const lastMsgId = messages[messages.length - 1].id;
+      if (autoTriggeredMessageId.current !== lastMsgId) {
+        autoTriggeredMessageId.current = lastMsgId;
+        triggerGeneration();
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialMessages]);
+
+  // Keep local state in sync with server state (e.g., after router.refresh)
+  useEffect(() => {
+    // Only accept server state if we aren't sending AND the server state isn't clearly stale
+    // (e.g. a delayed router.refresh from maybeAutoTitle that fetched before generation finished)
+    if (!isSendingRef.current) {
+      setMessages(prev => initialMessages.length >= prev.length ? initialMessages : prev);
+    }
   }, [initialMessages]);
 
   // Handle Escape key to stop generation
@@ -348,6 +363,7 @@ export function ChatClient({ conversation, initialMessages }: ChatClientProps) {
       
       // 4. Trigger Generation (does NOT wait for title)
       // triggerGeneration will manage its own finally block to clear isSending
+      autoTriggeredMessageId.current = savedUserMsg.id;
       triggerGeneration();
     } catch (err) {
       console.error(err);
@@ -392,7 +408,7 @@ export function ChatClient({ conversation, initialMessages }: ChatClientProps) {
         {messages.length === 0 ? (
           <WelcomeScreen onSuggestionClick={handleSend} disabled={isSending} />
         ) : (
-          <div className="flex flex-col pb-6">
+          <div className="flex flex-col pb-6 w-full max-w-4xl mx-auto">
             {messages.map((msg, idx) => (
               <Message 
                 key={msg.id} 
@@ -407,7 +423,7 @@ export function ChatClient({ conversation, initialMessages }: ChatClientProps) {
               />
             ))}
             {errorMessage && (
-              <div className="mx-auto my-4 max-w-2xl px-4 w-full" role="alert" aria-live="assertive">
+              <div className="my-4 px-4 w-full" role="alert" aria-live="assertive">
                 <div className="rounded-md bg-red-50 p-4 dark:bg-red-900/30 border border-red-100 dark:border-red-800/50">
                   <div className="flex">
                     <div className="ml-3">

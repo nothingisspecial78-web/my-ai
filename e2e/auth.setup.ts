@@ -1,4 +1,6 @@
 import { test as setup } from '@playwright/test';  
+import dotenv from 'dotenv';
+dotenv.config({ path: '.env.local' });
 import * as fs from 'fs';  
   
 const authFileA = 'playwright/.auth/userA.json';  
@@ -18,9 +20,11 @@ setup('authenticate', async ({ page }) => {
   
   await page.goto('/login');  
   await page.fill('input#email', emailA);  
-  await page.fill('input#password', passwordA);  
-  await page.click('button[type="submit"]');  
-  await page.waitForURL('**/chat', { timeout: 15000 });  
+  await page.fill('input#password', passwordA);
+  await Promise.all([
+    page.waitForNavigation(),
+    page.click('button[type="submit"]')
+  ]);
   await page.context().storageState({ path: authFileA });  
   
   await page.context().clearCookies();  
@@ -28,8 +32,10 @@ setup('authenticate', async ({ page }) => {
   
   await page.goto('/login');  
   await page.fill('input#email', emailB);  
-  await page.fill('input#password', passwordB);  
-  await page.click('button[type="submit"]');  
-  await page.waitForURL('**/chat', { timeout: 15000 });  
+  await page.fill('input#password', passwordB);
+  await Promise.all([
+    page.waitForNavigation(),
+    page.click('button[type="submit"]')
+  ]);
   await page.context().storageState({ path: authFileB });  
 }); 

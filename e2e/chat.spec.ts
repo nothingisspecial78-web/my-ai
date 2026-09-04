@@ -58,7 +58,7 @@ test.describe('E2E Chat Workflows', () => {
     await page.waitForURL('**/chat');
 
     // Test Stop Generation
-    await Promise.all([page.waitForNavigation(), page.click('text=New Conversation')]);
+    await Promise.all([page.waitForURL('**/chat'), page.click('text=New Conversation')]);
     await expect(page.locator('textarea')).toBeEnabled({ timeout: 15000 });
     await page.fill('textarea', 'Trigger a slow generation');
     await expect(page.locator('button[aria-label="Send message"]')).toBeEnabled({ timeout: 5000 });
@@ -91,7 +91,9 @@ test.describe('E2E Chat Workflows', () => {
     const contextA = await browser.newContext({ storageState: 'playwright/.auth/userA.json' });
     const pageA = await contextA.newPage();
     await pageA.goto('/chat');
-    await pageA.click('text=New Conversation');
+    // Start a new chat by sending a message
+    await pageA.fill('textarea', 'A secret message');
+    await pageA.click('button[aria-label="Send message"]');
     await pageA.waitForURL(/.*\/chat\/.+/);
     const chatUrl = pageA.url();
     
@@ -113,7 +115,7 @@ test.describe('E2E Chat Workflows', () => {
 
     // Test Ctrl+Shift+O (New Chat)
     await page.keyboard.press('Control+K');
-    await page.waitForURL(/.*\/chat\/.+/);
+    await page.waitForURL('**/chat');
     
     await expect(page.locator('textarea')).toBeEnabled({ timeout: 15000 });
     

@@ -1,4 +1,16 @@
 import { defineConfig, devices } from '@playwright/test';
+import * as fs from 'fs';
+if (fs.existsSync('.env.local')) {
+  const envContent = fs.readFileSync('.env.local', 'utf-8');
+  for (const line of envContent.split('\n')) {
+    if (line.includes('=') && !line.trim().startsWith('#')) {
+      const [key, ...values] = line.split('=');
+      if (key && values.length) {
+        process.env[key.trim()] = values.join('=').trim();
+      }
+    }
+  }
+}
 
 export default defineConfig({
   testDir: './e2e',
@@ -26,7 +38,6 @@ export default defineConfig({
         ...devices['Desktop Chrome'],
         storageState: 'playwright/.auth/userA.json',
       },
-      dependencies: ['setup'],
     },
   ],
   webServer: {

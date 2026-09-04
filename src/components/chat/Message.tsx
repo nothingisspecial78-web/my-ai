@@ -58,9 +58,9 @@ function MessageComponent({ id, role, content, isLast, onRegenerate, timestamp, 
   // --- User Message ---
   if (isUser) {
     return (
-      <div className="group w-full py-4 px-4 md:px-0 flex justify-end">
-        <div className="max-w-[70%] flex flex-col items-end gap-1">
-          <div className="bg-blue-600 text-white px-5 py-3 rounded-2xl rounded-br-sm shadow-sm">
+      <div className="group w-full py-4 px-4 flex justify-end">
+        <div className="max-w-[75%] flex flex-col items-end gap-1">
+          <div className="bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-5 py-3 rounded-2xl rounded-br-sm shadow-sm">
             <div className="whitespace-pre-wrap break-words text-[15px] leading-relaxed">
               {content}
             </div>
@@ -77,8 +77,8 @@ function MessageComponent({ id, role, content, isLast, onRegenerate, timestamp, 
 
   // --- AI Message ---
   return (
-    <div className="group w-full py-6 px-4 md:px-0 flex justify-start">
-      <div className="max-w-4xl w-full flex gap-4">
+    <div className="group w-full py-6 px-4 flex justify-start">
+      <div className="w-full flex gap-4">
         {/* Avatar */}
         <div className="shrink-0 flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white shadow-sm mt-1">
           <SparklesIcon />
