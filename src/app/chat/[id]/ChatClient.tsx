@@ -56,12 +56,28 @@ export function ChatClient({ conversation, initialMessages }: ChatClientProps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialMessages]);
 
+  const lastSyncStateRef = useRef<{ id: string; content: string } | null>(null);
+
   // Keep local state in sync with server state (e.g., after router.refresh)
   useEffect(() => {
     // Only accept server state if we aren't sending AND the server state isn't clearly stale
-    // (e.g. a delayed router.refresh from maybeAutoTitle that fetched before generation finished)
     if (!isSendingRef.current) {
-      setMessages(prev => initialMessages.length >= prev.length ? initialMessages : prev);
+      setMessages(prev => {
+        if (lastSyncStateRef.current) {
+          const { id, content } = lastSyncStateRef.current;
+          const serverMsg = initialMessages.find(m => m.id === id);
+          if (!serverMsg || serverMsg.content !== content) {
+            // Server state is stale (doesn't have our latest message, or has older content for it)
+            return prev;
+          } else {
+            // Server state has caught up to our local modification!
+            lastSyncStateRef.current = null;
+          }
+        }
+        
+        // At this point, no pending local mutations are un-synced.
+        return initialMessages;
+      });
     }
   }, [initialMessages]);
 
@@ -280,6 +296,7 @@ export function ChatClient({ conversation, initialMessages }: ChatClientProps) {
 
           if (updatedMsg) {
             setMessages(prev => prev.map(m => m.id === regenerateMessageId ? updatedMsg : m));
+            lastSyncStateRef.current = { id: updatedMsg.id, content: updatedMsg.content };
             router.refresh();
           } else {
             // DB update failed: rollback UI
@@ -306,6 +323,7 @@ export function ChatClient({ conversation, initialMessages }: ChatClientProps) {
 
           if (savedAiMsg) {
             setMessages(prev => prev.map(m => m.id === tempAiId ? savedAiMsg : m));
+            lastSyncStateRef.current = { id: savedAiMsg.id, content: savedAiMsg.content };
             router.refresh();
           }
         } else if (isError || wasAborted) {
@@ -357,6 +375,7 @@ export function ChatClient({ conversation, initialMessages }: ChatClientProps) {
       if (!savedUserMsg) throw new Error('Failed to save user message');
 
       setMessages(prev => prev.map(m => m.id === tempUserId ? savedUserMsg : m));
+      lastSyncStateRef.current = { id: savedUserMsg.id, content: savedUserMsg.content };
       
       // 3. Auto-title (best-effort, non-blocking — fire and forget)
       maybeAutoTitle(text);
