@@ -32,34 +32,52 @@ export class GeminiProvider implements AIProvider {
     // Start stream
     yield { type: 'start' };
 
-    let responseStream;
-    let retries = 0;
-    const maxRetries = 3;
-    
-    while (true) {
-      try {
-        responseStream = await this.client.models.generateContentStream({
-          model: this.model,
-          contents,
-          config: {
-            systemInstruction: SYSTEM_INSTRUCTION,
-          },
-        });
-        break;
-      } catch (err: any) {
-        if (
-          retries < maxRetries &&
-          (err.status === 429 || err.status === 503 || err.message?.toLowerCase().includes('quota') || err.message?.toLowerCase().includes('rate limit'))
-        ) {
-          retries++;
-          await new Promise(resolve => setTimeout(resolve, Math.pow(2, retries - 1) * 1000));
-        } else {
-          throw err;
+    try {
+      let responseStream;
+      let retries = 0;
+      const maxRetries = 3;
+      
+      while (true) {
+        if (options?.signal?.aborted) {
+          throw new Error('AbortError');
+        }
+        try {
+          responseStream = await this.client.models.generateContentStream({
+            model: this.model,
+            contents,
+            config: {
+              systemInstruction: SYSTEM_INSTRUCTION,
+            },
+          });
+          break;
+        } catch (error: unknown) {
+          const err = error as Error & { status?: number };
+          if (
+            retries < maxRetries &&
+            (err.status === 429 || err.status === 503 || err.message?.toLowerCase().includes('quota') || err.message?.toLowerCase().includes('rate limit'))
+          ) {
+            retries++;
+            // Respect abort signal during the wait
+            let timeoutId: NodeJS.Timeout;
+            await new Promise((resolve, reject) => {
+              const onAbort = () => {
+                clearTimeout(timeoutId);
+                reject(new Error('AbortError'));
+              };
+              if (options?.signal?.aborted) {
+                return onAbort();
+              }
+              options?.signal?.addEventListener('abort', onAbort);
+              timeoutId = setTimeout(() => {
+                options?.signal?.removeEventListener('abort', onAbort);
+                resolve(true);
+              }, Math.pow(2, retries - 1) * 1000);
+            });
+          } else {
+            throw err;
+          }
         }
       }
-    }
-
-    try {
 
       let inputTokens = undefined;
       let outputTokens = undefined;
