@@ -10,7 +10,7 @@
  * Default: 10 generation requests per 60-second window per user.
  */
 
-import { redis } from '../redis';
+import { getRedis } from '../redis';
 
 interface RateLimitEntry {
   timestamps: number[];
@@ -42,38 +42,41 @@ export class RateLimiter {
    * Check if a request is allowed for the given user.
    */
   async check(userId: string): Promise<{ allowed: true } | { allowed: false; retryAfter: number }> {
-    if (process.env.NODE_ENV === 'production' && !redis && process.env.ALLOW_LOCAL_FALLBACK !== 'true') {
-      throw new Error('In-memory rate limit fallback is disabled in production. Configure REDIS_URL or ALLOW_LOCAL_FALLBACK=true');
-    }
-
     const now = Date.now();
     const windowStart = now - this.windowMs;
 
-    if (redis) {
-      const key = `ratelimit:${userId}`;
-      const multi = redis.multi();
-      multi.zremrangebyscore(key, '-inf', windowStart);
-      multi.zcard(key);
-      const results = await multi.exec();
-      
-      const count = (results?.[1]?.[1] as number) || 0;
-      
-      if (count >= this.maxRequests) {
-        const oldestEntry = await redis.zrange(key, '0', '0', 'WITHSCORES');
-        let retryAfter = 1;
-        if (oldestEntry && oldestEntry.length === 2) {
-          const oldestScore = parseInt(oldestEntry[1], 10);
-          retryAfter = Math.ceil((oldestScore + this.windowMs - now) / 1000);
+    // Try Redis first
+    try {
+      const redis = await getRedis();
+      if (redis) {
+        const key = `ratelimit:${userId}`;
+        const multi = redis.multi();
+        multi.zremrangebyscore(key, '-inf', windowStart);
+        multi.zcard(key);
+        const results = await multi.exec();
+        
+        const count = (results?.[1]?.[1] as number) || 0;
+        
+        if (count >= this.maxRequests) {
+          const oldestEntry = await redis.zrange(key, '0', '0', 'WITHSCORES');
+          let retryAfter = 1;
+          if (oldestEntry && oldestEntry.length === 2) {
+            const oldestScore = parseInt(oldestEntry[1], 10);
+            retryAfter = Math.ceil((oldestScore + this.windowMs - now) / 1000);
+          }
+          return { allowed: false, retryAfter: Math.max(1, retryAfter) };
         }
-        return { allowed: false, retryAfter: Math.max(1, retryAfter) };
+        
+        const p = redis.multi();
+        p.zadd(key, String(now), String(now) + '-' + String(Math.random()));
+        p.expire(key, Math.ceil(this.windowMs / 1000) * 2);
+        await p.exec();
+        
+        return { allowed: true };
       }
-      
-      const p = redis.multi();
-      p.zadd(key, String(now), String(now) + '-' + String(Math.random()));
-      p.expire(key, Math.ceil(this.windowMs / 1000) * 2);
-      await p.exec();
-      
-      return { allowed: true };
+    } catch (err) {
+      // Redis failed — fall through to local memory fallback
+      console.warn('Rate limiter: Redis unavailable, using local fallback', err instanceof Error ? err.message : err);
     }
 
     // Local Memory Fallback
