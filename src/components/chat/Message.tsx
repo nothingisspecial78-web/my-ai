@@ -31,6 +31,7 @@ interface MessageProps {
 function MessageComponent({ id, role, content, isLast, onRegenerate, timestamp, showTimestamp, isThinking }: MessageProps) {
   const isUser = role === 'user';
   const [copied, setCopied] = useState(false);
+  const [feedback, setFeedback] = useState<'like' | 'dislike' | null>(null);
 
   const handleCopy = () => {
     if (navigator.clipboard) {
@@ -156,21 +157,42 @@ function MessageComponent({ id, role, content, isLast, onRegenerate, timestamp, 
           {/* AI Action Toolbar */}
           {!isThinking && (
             <div className="flex flex-wrap items-center gap-1.5 pt-3 pl-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
-              <ToolbarButton icon={BookOpen} label="View sources" text="View sources" />
-              <ToolbarButton icon={GitFork} label="Branch in new chat" text="Branch" />
-              <ToolbarButton icon={Volume2} label="Read aloud" text="Read aloud" />
+              <ToolbarButton 
+                icon={Volume2} 
+                label="Read aloud" 
+                text="Read" 
+                onClick={() => {
+                  if ('speechSynthesis' in window) {
+                    window.speechSynthesis.cancel();
+                    const utterance = new SpeechSynthesisUtterance(content);
+                    window.speechSynthesis.speak(utterance);
+                  }
+                }} 
+              />
+              <div className="w-px h-4 bg-gray-200 dark:bg-gray-800 mx-1"></div>
               
-              <div className="w-px h-4 bg-gray-300 dark:bg-gray-700 mx-1"></div>
-              
-              <ToolbarButton icon={ThumbsUp} label="Like response" />
-              <ToolbarButton icon={ThumbsDown} label="Dislike response" />
-              <ToolbarButton icon={Share} label="Share" onClick={handleCopy} active={copied} />
+              <ToolbarButton 
+                icon={ThumbsUp} 
+                label="Like response" 
+                active={feedback === 'like'}
+                onClick={() => setFeedback(prev => prev === 'like' ? null : 'like')}
+              />
+              <ToolbarButton 
+                icon={ThumbsDown} 
+                label="Dislike response" 
+                active={feedback === 'dislike'}
+                onClick={() => setFeedback(prev => prev === 'dislike' ? null : 'dislike')}
+              />
+              <ToolbarButton 
+                icon={Copy} 
+                label="Copy response" 
+                onClick={handleCopy} 
+                active={copied} 
+              />
               
               {isLast && onRegenerate && id && (
                 <ToolbarButton icon={RefreshCw} label="Regenerate message" onClick={() => onRegenerate(id)} />
               )}
-              
-              <ToolbarButton icon={MoreHorizontal} label="More options" />
             </div>
           )}
         </div>

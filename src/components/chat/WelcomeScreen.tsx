@@ -20,13 +20,13 @@ export function WelcomeScreen({ onSuggestionClick, disabled }: WelcomeScreenProp
       <div className="max-w-2xl w-full text-center space-y-8 fade-in-up px-4 pb-12">
         {/* Hero */}
         <div className="space-y-4">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-lg shadow-blue-500/20">
-            <Sparkles size={32} />
+          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-xl shadow-blue-500/30 mb-6">
+            <Sparkles size={40} />
           </div>
-          <h1 className="text-4xl md:text-5xl font-semibold tracking-tight text-gray-900 dark:text-white">
+          <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400 pb-2">
             Welcome to MyAI
           </h1>
-          <p className="text-lg text-gray-500 dark:text-gray-400 max-w-md mx-auto">
+          <p className="text-lg text-gray-500 dark:text-gray-400 max-w-md mx-auto font-medium">
             How can I help you today?
           </p>
         </div>
