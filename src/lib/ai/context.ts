@@ -14,10 +14,12 @@ export interface ContextOptions {
 export function prepareContext(messages: Message[], options?: ContextOptions): Message[] {
   const maxCharacters = options?.maxCharacters || 30000;
   
-  // Filter out empty or malformed messages
-  const validMessages = messages.filter(
-    msg => typeof msg.content === 'string' && msg.content.trim().length > 0
-  );
+  // Filter out empty or malformed messages, but preserve those with attachments
+  const validMessages = messages.filter(msg => {
+    const hasText = typeof msg.content === 'string' && msg.content.trim().length > 0;
+    const hasAttachments = msg.metadata?.attachments && Array.isArray(msg.metadata.attachments) && msg.metadata.attachments.length > 0;
+    return hasText || hasAttachments;
+  });
 
   if (validMessages.length === 0) return [];
   

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Plus, Search, Mic, ArrowUp, X, Loader2, Image as ImageIcon } from 'lucide-react';
+import { Plus, Search, Mic, ArrowUp, X, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Attachment } from '@/lib/ai/types';
 
@@ -110,7 +110,7 @@ export function ChatComposer({ onSend, disabled, enterToSend = true }: ChatCompo
       if (!signRes.ok) {
         throw new Error('Failed to get upload signature');
       }
-      const { timestamp, signature, apiKey, cloudName, folder, allowed_formats, max_file_size } = await signRes.json();
+      const { timestamp, signature, apiKey, cloudName, folder, allowed_formats } = await signRes.json();
 
       // 2. Upload to Cloudinary
       const formData = new FormData();
@@ -120,7 +120,6 @@ export function ChatComposer({ onSend, disabled, enterToSend = true }: ChatCompo
       formData.append('signature', signature);
       formData.append('folder', folder);
       formData.append('allowed_formats', allowed_formats);
-      formData.append('max_file_size', max_file_size.toString());
 
       const uploadRes = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
         method: 'POST',
@@ -128,7 +127,8 @@ export function ChatComposer({ onSend, disabled, enterToSend = true }: ChatCompo
       });
 
       if (!uploadRes.ok) {
-        throw new Error('Upload to Cloudinary failed');
+        const errText = await uploadRes.text();
+        throw new Error(`Upload to Cloudinary failed: ${errText}`);
       }
 
       const data = await uploadRes.json();
@@ -150,6 +150,10 @@ export function ChatComposer({ onSend, disabled, enterToSend = true }: ChatCompo
       setUploadError('Failed to upload image. Please try again.');
     } finally {
       setIsUploading(false);
+      // Auto-focus the textarea so the user can just press Enter after an upload
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+      }
     }
   };
 

@@ -30,4 +30,17 @@ describe('prepareContext', () => {
     expect(context[0].content[0]).toBe('b');
     expect(context[1].content[0]).toBe('c');
   });
+
+  it('preserves image-only messages', () => {
+    const messages: Message[] = [
+      { id: '1', role: 'user', content: '' }, // Should be stripped
+      { id: '2', role: 'user', content: '', metadata: { attachments: [{ type: 'image', url: '...' }] } }, // Should be kept
+      { id: '3', role: 'assistant', content: 'Response' }
+    ] as unknown as Message[];
+
+    const context = prepareContext(messages);
+    expect(context).toHaveLength(2);
+    expect(context[0].metadata?.attachments).toBeDefined();
+    expect(context[1].content).toBe('Response');
+  });
 });

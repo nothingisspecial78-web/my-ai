@@ -30,7 +30,7 @@ export function Sidebar({ initialConversations = [], initialCursor = null }: { i
   const [conversations, setConversations] = useState<Conversation[]>(initialConversations);
   const [cursor, setCursor] = useState<string | null>(initialCursor);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [isCreating, setIsCreating] = useState(false);
+  const [isCreating] = useState(false);
   
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');

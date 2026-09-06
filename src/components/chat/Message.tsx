@@ -4,18 +4,15 @@ import { useState, memo } from 'react';
 import { 
   Copy, 
   RefreshCw, 
-  Check, 
-  BookOpen, 
-  GitFork, 
   Volume2, 
   ThumbsUp, 
-  ThumbsDown, 
-  Share, 
-  MoreHorizontal 
+  ThumbsDown,
+  Pencil
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { cn } from '@/lib/utils';
+import { Attachment } from '@/lib/ai/types';
 
 interface MessageProps {
   id?: string;
@@ -35,7 +32,7 @@ function MessageComponent({ id, role, content, isLast, onRegenerate, timestamp, 
   const [feedback, setFeedback] = useState<'like' | 'dislike' | null>(null);
   
   // Extract attachments from metadata if present
-  const attachments = (metadata?.attachments as any[]) || [];
+  const attachments = (metadata?.attachments as Attachment[]) || [];
   const imageAttachments = attachments.filter(a => a.type === 'image' && a.url);
 
   const handleCopy = () => {
@@ -87,6 +84,23 @@ function MessageComponent({ id, role, content, isLast, onRegenerate, timestamp, 
               {formatTimestamp(timestamp)}
             </div>
           )}
+
+          {/* User Action Toolbar */}
+          <div className="flex items-center gap-1.5 pt-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+            <ToolbarButton 
+              icon={Pencil} 
+              label="Edit" 
+              onClick={() => {
+                // Future: Add real edit logic. For now, it copies the text to clipboard so they can paste and edit.
+                navigator.clipboard.writeText(content);
+              }} 
+            />
+            <ToolbarButton 
+              icon={Copy} 
+              label="Copy" 
+              onClick={handleCopy} 
+            />
+          </div>
         </div>
       </div>
     );

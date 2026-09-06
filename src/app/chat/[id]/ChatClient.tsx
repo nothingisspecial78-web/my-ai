@@ -2,13 +2,13 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Sparkles, Loader2, StopCircle } from 'lucide-react';
+import { Loader2, StopCircle } from 'lucide-react';
 import { ChatComposer } from '@/components/chat/ChatComposer';
 import { WelcomeScreen } from '@/components/chat/WelcomeScreen';
 import { Message } from '@/components/chat/Message';
-import { Database } from '@/types/database';
+import { Database, Json } from '@/types/database';
 import { createMessage, replaceAssistantMessage, updateConversation } from '@/lib/database';
-import { AIStreamEvent } from '@/lib/ai/types';
+import { AIStreamEvent, Attachment } from '@/lib/ai/types';
 import { useChatPreferences } from '@/hooks/use-chat-preferences';
 import { extractConversationTitle } from '@/lib/utilities/title';
 
@@ -338,14 +338,14 @@ export function ChatClient({ conversation, initialMessages }: ChatClientProps) {
     }
   }
 
-  const handleSend = async (text: string, attachments?: any[]) => {
+  const handleSend = async (text: string, attachments?: Attachment[]) => {
     if ((!text.trim() && (!attachments || attachments.length === 0)) || isSendingRef.current) return;
     
     isSendingRef.current = true;
     setIsSending(true);
     setErrorMessage(null);
 
-    const metadata = attachments && attachments.length > 0 ? { attachments } : {};
+    const metadata = attachments && attachments.length > 0 ? { attachments: attachments as unknown as Json } : {};
 
     // 1. Optimistic User Message
     const tempUserId = `temp-user-${Date.now()}`;

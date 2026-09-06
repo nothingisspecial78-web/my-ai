@@ -30,8 +30,7 @@ export async function POST(req: Request) {
       timestamp,
       folder,
       // Add secure server-side constraints
-      allowed_formats: 'jpg,png,webp',
-      max_file_size: 5242880 // 5MB
+      allowed_formats: 'jpg,png,webp'
     };
 
     // Sort keys alphabetically
@@ -50,8 +49,7 @@ export async function POST(req: Request) {
       apiKey,
       cloudName,
       folder,
-      allowed_formats: paramsToSign.allowed_formats,
-      max_file_size: paramsToSign.max_file_size
+      allowed_formats: paramsToSign.allowed_formats
     });
   } catch (error) {
     console.error('Error generating upload signature:', error);
