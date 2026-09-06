@@ -26,12 +26,17 @@ interface MessageProps {
   timestamp?: string | null;
   showTimestamp?: boolean;
   isThinking?: boolean;
+  metadata?: Record<string, unknown>;
 }
 
-function MessageComponent({ id, role, content, isLast, onRegenerate, timestamp, showTimestamp, isThinking }: MessageProps) {
+function MessageComponent({ id, role, content, isLast, onRegenerate, timestamp, showTimestamp, isThinking, metadata }: MessageProps) {
   const isUser = role === 'user';
   const [copied, setCopied] = useState(false);
   const [feedback, setFeedback] = useState<'like' | 'dislike' | null>(null);
+  
+  // Extract attachments from metadata if present
+  const attachments = (metadata?.attachments as any[]) || [];
+  const imageAttachments = attachments.filter(a => a.type === 'image' && a.url);
 
   const handleCopy = () => {
     if (navigator.clipboard) {
@@ -61,11 +66,22 @@ function MessageComponent({ id, role, content, isLast, onRegenerate, timestamp, 
     return (
       <div className="group w-full py-4 px-4 flex justify-end">
         <div className="max-w-[75%] flex flex-col items-end gap-1">
-          <div className="bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-5 py-3 rounded-2xl rounded-br-sm shadow-sm">
-            <div className="whitespace-pre-wrap break-words text-[15px] leading-relaxed">
-              {content}
+          {imageAttachments.length > 0 && (
+            <div className="flex flex-wrap justify-end gap-2 mb-1">
+              {imageAttachments.map((att, idx) => (
+                <div key={idx} className="relative rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 max-w-[200px] sm:max-w-[250px] shadow-sm">
+                  <img src={att.url} alt="Uploaded image" className="w-full h-auto object-cover max-h-[300px]" />
+                </div>
+              ))}
             </div>
-          </div>
+          )}
+          {content.trim() && (
+            <div className="bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-5 py-3 rounded-2xl rounded-br-sm shadow-sm">
+              <div className="whitespace-pre-wrap break-words text-[15px] leading-relaxed">
+                {content}
+              </div>
+            </div>
+          )}
           {showTimestamp && timestamp && (
             <div className="text-[11px] text-gray-400 mr-1 mt-1">
               {formatTimestamp(timestamp)}

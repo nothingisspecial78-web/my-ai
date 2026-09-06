@@ -1,5 +1,16 @@
 export type Role = 'user' | 'assistant' | 'system';
 
+export interface Attachment {
+  type: 'image' | 'file';
+  url: string;
+  public_id?: string;
+  mime_type?: string;
+  original_name?: string;
+  size?: number;
+  width?: number;
+  height?: number;
+}
+
 export interface Message {
   id: string;
   conversation_id: string;
@@ -10,7 +21,10 @@ export interface Message {
   provider?: string;
   input_tokens?: number;
   output_tokens?: number;
-  metadata?: Record<string, unknown>;
+  metadata?: {
+    attachments?: Attachment[];
+    [key: string]: unknown;
+  };
   created_at: Date;
 }
 

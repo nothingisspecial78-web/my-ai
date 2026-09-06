@@ -338,12 +338,14 @@ export function ChatClient({ conversation, initialMessages }: ChatClientProps) {
     }
   }
 
-  const handleSend = async (text: string) => {
-    if (!text.trim() || isSendingRef.current) return;
+  const handleSend = async (text: string, attachments?: any[]) => {
+    if ((!text.trim() && (!attachments || attachments.length === 0)) || isSendingRef.current) return;
     
     isSendingRef.current = true;
     setIsSending(true);
     setErrorMessage(null);
+
+    const metadata = attachments && attachments.length > 0 ? { attachments } : {};
 
     // 1. Optimistic User Message
     const tempUserId = `temp-user-${Date.now()}`;
@@ -353,7 +355,7 @@ export function ChatClient({ conversation, initialMessages }: ChatClientProps) {
       user_id: conversation.user_id,
       role: 'user',
       content: text,
-      metadata: {},
+      metadata: metadata,
       created_at: new Date().toISOString(),
       model: null,
       provider: null,
@@ -369,7 +371,7 @@ export function ChatClient({ conversation, initialMessages }: ChatClientProps) {
         conversation_id: conversation.id,
         role: 'user',
         content: text,
-        metadata: {},
+        metadata: metadata,
       });
 
       if (!savedUserMsg) throw new Error('Failed to save user message');
@@ -439,6 +441,7 @@ export function ChatClient({ conversation, initialMessages }: ChatClientProps) {
                 timestamp={msg.created_at}
                 showTimestamp={preferences.showTimestamps}
                 isThinking={isThinking && msg.role === 'assistant' && msg.content === ''}
+                metadata={(msg.metadata as Record<string, unknown>) || undefined}
               />
             ))}
             {errorMessage && (

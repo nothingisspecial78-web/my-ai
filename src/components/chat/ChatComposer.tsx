@@ -1,18 +1,23 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Send, Plus, Search, Mic, ArrowUp } from 'lucide-react';
+import { Plus, Search, Mic, ArrowUp, X, Loader2, Image as ImageIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Attachment } from '@/lib/ai/types';
 
 interface ChatComposerProps {
-  onSend: (message: string) => void;
+  onSend: (message: string, attachments?: Attachment[]) => void;
   disabled?: boolean;
   enterToSend?: boolean;
 }
 
 export function ChatComposer({ onSend, disabled, enterToSend = true }: ChatComposerProps) {
   const [content, setContent] = useState('');
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Auto-resize textarea using requestAnimationFrame to prevent layout thrashing
   useEffect(() => {
@@ -30,12 +35,11 @@ export function ChatComposer({ onSend, disabled, enterToSend = true }: ChatCompo
   // Capture global typing to focus textarea
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      // Ignore if typing in another input or pressing modifier keys
       if (
         e.target instanceof HTMLInputElement || 
         e.target instanceof HTMLTextAreaElement ||
         e.ctrlKey || e.metaKey || e.altKey ||
-        e.key.length > 1 // Ignore Enter, Shift, Backspace, etc.
+        e.key.length > 1
       ) {
         return;
       }
@@ -51,13 +55,11 @@ export function ChatComposer({ onSend, disabled, enterToSend = true }: ChatCompo
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (enterToSend) {
-      // Enter sends, Shift+Enter for newline
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         handleSubmit();
       }
     } else {
-      // Ctrl/Cmd+Enter sends
       if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
         handleSubmit();
@@ -66,14 +68,96 @@ export function ChatComposer({ onSend, disabled, enterToSend = true }: ChatCompo
   };
 
   const handleSubmit = () => {
-    if (content.trim() && !disabled) {
-      onSend(content.trim());
+    if ((content.trim() || attachments.length > 0) && !disabled && !isUploading) {
+      onSend(content.trim(), attachments.length > 0 ? attachments : undefined);
       setContent('');
+      setAttachments([]);
+      setUploadError(null);
       if (textareaRef.current) {
         textareaRef.current.style.height = 'auto';
       }
     }
   };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    const file = files[0];
+
+    // Reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+
+    setUploadError(null);
+
+    // Validation
+    const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      setUploadError('Only JPEG, PNG, and WEBP images are supported.');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setUploadError('Image size must be less than 5MB.');
+      return;
+    }
+
+    setIsUploading(true);
+    
+    try {
+      // 1. Get Signature
+      const signRes = await fetch('/api/upload/sign', { method: 'POST' });
+      if (!signRes.ok) {
+        throw new Error('Failed to get upload signature');
+      }
+      const { timestamp, signature, apiKey, cloudName, folder, allowed_formats, max_file_size } = await signRes.json();
+
+      // 2. Upload to Cloudinary
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('api_key', apiKey);
+      formData.append('timestamp', timestamp.toString());
+      formData.append('signature', signature);
+      formData.append('folder', folder);
+      formData.append('allowed_formats', allowed_formats);
+      formData.append('max_file_size', max_file_size.toString());
+
+      const uploadRes = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!uploadRes.ok) {
+        throw new Error('Upload to Cloudinary failed');
+      }
+
+      const data = await uploadRes.json();
+
+      const newAttachment: Attachment = {
+        type: 'image',
+        url: data.secure_url,
+        public_id: data.public_id,
+        mime_type: data.format ? `image/${data.format}` : file.type,
+        original_name: file.name,
+        size: data.bytes,
+        width: data.width,
+        height: data.height
+      };
+
+      setAttachments(prev => [...prev, newAttachment]);
+    } catch (error) {
+      console.error('Upload error:', error);
+      setUploadError('Failed to upload image. Please try again.');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const removeAttachment = (index: number) => {
+    setAttachments(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const isSendDisabled = disabled || isUploading || (!content.trim() && attachments.length === 0);
 
   return (
     <div className="relative w-full max-w-4xl mx-auto px-4 pb-6 pt-2">
@@ -82,6 +166,37 @@ export function ChatComposer({ onSend, disabled, enterToSend = true }: ChatCompo
         disabled && "opacity-60 cursor-not-allowed"
       )}>
         
+        {/* Attachments Preview Area */}
+        {(attachments.length > 0 || isUploading || uploadError) && (
+          <div className="flex flex-wrap gap-3 px-4 pt-3 pb-1">
+            {attachments.map((att, idx) => (
+              <div key={idx} className="relative group w-16 h-16 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 shadow-sm shrink-0">
+                <img src={att.url} alt="Attachment" className="w-full h-full object-cover" />
+                <button
+                  onClick={() => removeAttachment(idx)}
+                  className="absolute top-1 right-1 p-0.5 rounded-full bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70"
+                  aria-label="Remove image"
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            ))}
+            
+            {isUploading && (
+              <div className="w-16 h-16 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex flex-col items-center justify-center shrink-0">
+                <Loader2 size={18} className="animate-spin text-blue-500 mb-1" />
+              </div>
+            )}
+
+            {uploadError && (
+              <div className="flex items-center gap-2 text-sm text-red-500 bg-red-50 dark:bg-red-950/50 px-3 py-1.5 rounded-lg">
+                <span>{uploadError}</span>
+                <button onClick={() => setUploadError(null)} className="hover:text-red-700"><X size={14}/></button>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Textarea */}
         <textarea
           ref={textareaRef}
@@ -99,8 +214,8 @@ export function ChatComposer({ onSend, disabled, enterToSend = true }: ChatCompo
         {/* Bottom Toolbar */}
         <div className="flex items-center justify-between px-2 pb-1 pt-2">
           <div className="flex items-center gap-2">
-            <label className="flex h-9 w-9 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300 transition-colors focus-within:ring-2 focus-within:ring-blue-500 cursor-pointer">
-              <input type="file" className="hidden" aria-label="Upload file or photo" accept="image/*,.pdf,.doc,.docx,.txt" multiple onChange={() => { alert('File upload will be processed by the backend.'); }} />
+            <label className={cn("flex h-9 w-9 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300 transition-colors focus-within:ring-2 focus-within:ring-blue-500 cursor-pointer", isUploading && "opacity-50 pointer-events-none")}>
+              <input ref={fileInputRef} type="file" className="hidden" aria-label="Upload file or photo" accept="image/jpeg,image/png,image/webp" onChange={handleFileUpload} disabled={isUploading} />
               <Plus size={18} strokeWidth={2.5} />
             </label>
             <button 
@@ -124,11 +239,11 @@ export function ChatComposer({ onSend, disabled, enterToSend = true }: ChatCompo
             {/* Send Button */}
             <button
               onClick={handleSubmit}
-              disabled={!content.trim() || disabled}
+              disabled={isSendDisabled}
               aria-label="Send message"
               className={cn(
                 "flex h-9 w-9 items-center justify-center rounded-full text-white transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900",
-                content.trim() && !disabled 
+                !isSendDisabled
                   ? "bg-blue-600 hover:bg-blue-700 shadow-sm" 
                   : "bg-gray-200 dark:bg-gray-700 text-gray-400 cursor-not-allowed"
               )}
