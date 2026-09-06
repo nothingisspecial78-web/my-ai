@@ -20,7 +20,7 @@ export class GeminiProvider implements AIProvider {
 
   async *generateStream(
     messages: Message[],
-    options?: { userId?: string; conversationId?: string; signal?: AbortSignal }
+    options?: { userId?: string; conversationId?: string; signal?: AbortSignal; systemInstruction?: string }
   ): AsyncGenerator<AIStreamEvent, void, unknown> {
     
     // Start stream
@@ -180,7 +180,7 @@ export class GeminiProvider implements AIProvider {
             model: this.model,
             contents,
             config: {
-              systemInstruction: SYSTEM_INSTRUCTION,
+              systemInstruction: options?.systemInstruction || SYSTEM_INSTRUCTION,
             },
           });
           break;

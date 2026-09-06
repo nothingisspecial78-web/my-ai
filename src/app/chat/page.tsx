@@ -4,12 +4,14 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChatComposer } from '@/components/chat/ChatComposer';
 import { WelcomeScreen } from '@/components/chat/WelcomeScreen';
+import { ThemeSelector } from '@/components/chat/ThemeSelector';
 import { useChatPreferences } from '@/hooks/use-chat-preferences';
 import { extractConversationTitle } from '@/lib/utilities/title';
 
 export default function ChatEmptyPage() {
   const router = useRouter();
   const [isNavigating, setIsNavigating] = useState(false);
+  const [selectedThemeId, setSelectedThemeId] = useState<string | null>(null);
   const { preferences } = useChatPreferences();
 
   const handleSend = async (text: string) => {
@@ -20,7 +22,7 @@ export default function ChatEmptyPage() {
       
       const title = extractConversationTitle(text);
       
-      const newConvo = await createConversation(title);
+      const newConvo = await createConversation(title, selectedThemeId || undefined);
       if (newConvo) {
         await createMessage({
           conversation_id: newConvo.id,
@@ -45,6 +47,13 @@ export default function ChatEmptyPage() {
       </div>
 
       <div className="mt-auto w-full bg-gradient-to-t from-white via-white to-transparent dark:from-gray-900 dark:via-gray-900 dark:to-transparent">
+        <div className="max-w-3xl mx-auto px-4 pb-2 flex justify-start">
+          <ThemeSelector 
+            selectedThemeId={selectedThemeId} 
+            onSelect={setSelectedThemeId} 
+            disabled={isNavigating}
+          />
+        </div>
         <ChatComposer 
           onSend={handleSend} 
           disabled={isNavigating}

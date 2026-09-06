@@ -78,6 +78,6 @@ export interface AIProvider {
    */
   generateStream(
     messages: Message[], 
-    options?: { userId?: string; conversationId?: string; signal?: AbortSignal }
+    options?: { userId?: string; conversationId?: string; signal?: AbortSignal; systemInstruction?: string }
   ): AsyncGenerator<AIStreamEvent, void, unknown>;
 }

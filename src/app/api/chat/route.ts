@@ -99,6 +99,10 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // 7.5 Load Theme if applicable
+    const { resolveThemeInstruction } = await import('@/lib/theme/resolver');
+    const systemInstruction = await resolveThemeInstruction(conversation.theme_id);
+
     // 8. Prepare context budget
     const contextMessages = prepareContext(messagesToUse as unknown as Message[]);
 
@@ -137,6 +141,7 @@ export async function POST(req: NextRequest) {
             userId: currentUserId,
             conversationId: currentConversationId,
             signal: req.signal,
+            systemInstruction: systemInstruction || undefined,
           });
 
           for await (const event of generator) {

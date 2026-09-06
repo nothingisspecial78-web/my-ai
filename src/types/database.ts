@@ -9,6 +9,45 @@ export type Json =
 export interface Database {
   public: {
     Tables: {
+      themes: {
+        Row: {
+          id: string
+          name: string
+          slug: string
+          description: string | null
+          icon: string | null
+          enabled: boolean
+          is_system: boolean
+          config: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          slug: string
+          description?: string | null
+          icon?: string | null
+          enabled?: boolean
+          is_system?: boolean
+          config?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          slug?: string
+          description?: string | null
+          icon?: string | null
+          enabled?: boolean
+          is_system?: boolean
+          config?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           id: string
@@ -41,6 +80,7 @@ export interface Database {
           id: string
           user_id: string
           title: string
+          theme_id: string | null
           created_at: string
           updated_at: string
           deleted_at: string | null
@@ -49,6 +89,7 @@ export interface Database {
           id?: string
           user_id: string
           title: string
+          theme_id?: string | null
           created_at?: string
           updated_at?: string
           deleted_at?: string | null
@@ -57,6 +98,7 @@ export interface Database {
           id?: string
           user_id?: string
           title?: string
+          theme_id?: string | null
           created_at?: string
           updated_at?: string
           deleted_at?: string | null

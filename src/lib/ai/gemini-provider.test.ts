@@ -300,4 +300,27 @@ describe('GeminiProvider', () => {
     // Re-mapped by the provider's catch block, but it catches our thrown Error
     expect(mockGenerateContentStream).not.toHaveBeenCalled();
   });
+
+  it('16. Passes custom systemInstruction to Gemini when a theme provides one', async () => {
+    mockGenerateContentStream.mockReturnValueOnce((async function* () {
+      yield { text: 'Custom themed response', usageMetadata: { promptTokenCount: 5, candidatesTokenCount: 5 } };
+    })());
+
+    const messages = [{ id: '1', role: 'user', content: 'Hello', metadata: {} }] as unknown as Message[];
+    const generator = provider.generateStream(messages, { systemInstruction: 'Custom Theme Instructions' });
+    
+    let result = '';
+    for await (const event of generator) {
+      if (event.type === 'chunk') result += (event as { text: string }).text;
+    }
+
+    expect(result).toBe('Custom themed response');
+    expect(mockGenerateContentStream).toHaveBeenCalledWith(
+      expect.objectContaining({
+        config: expect.objectContaining({
+          systemInstruction: 'Custom Theme Instructions'
+        })
+      })
+    );
+  });
 });

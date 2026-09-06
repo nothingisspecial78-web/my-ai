@@ -113,6 +113,7 @@ export async function searchConversations(query: string, limit: number = 20): Pr
     updated_at: c.updated_at,
     title: c.title,
     user_id: c.user_id,
+    theme_id: c.theme_id,
     deleted_at: c.deleted_at
   }])).values());
 
@@ -136,8 +137,7 @@ export async function getConversation(conversationId: string): Promise<Conversat
   return data;
 }
 
-export async function createConversation(title: string): Promise<Conversation | null> {
-  
+export async function createConversation(title: string, theme_id?: string): Promise<Conversation | null> {
   const supabase = (await createClient()) as SupabaseClient<Database>;
   const { data: { user } } = await supabase.auth.getUser();
   
@@ -145,10 +145,10 @@ export async function createConversation(title: string): Promise<Conversation | 
 
   const { data, error } = await supabase
     .from('conversations')
-
     .insert({
       user_id: user.id,
       title,
+      theme_id: theme_id || null,
     })
     .select()
     .single();
@@ -406,3 +406,34 @@ export async function updateProfile(
   return data;
 }
 
+
+export async function getThemes() {
+  const supabase = (await createClient()) as SupabaseClient<Database>;
+  const { data, error } = await supabase
+    .from('themes')
+    .select('*')
+    .eq('enabled', true)
+    .eq('is_system', true)
+    .order('name');
+  
+  if (error) {
+    console.error('Error fetching themes:', error);
+    return [];
+  }
+  return data;
+}
+
+export async function getThemeById(id: string) {
+  const supabase = (await createClient()) as SupabaseClient<Database>;
+  const { data, error } = await supabase
+    .from('themes')
+    .select('*')
+    .eq('id', id)
+    .single();
+    
+  if (error) {
+    console.error('Error fetching theme:', error);
+    return null;
+  }
+  return data;
+}
