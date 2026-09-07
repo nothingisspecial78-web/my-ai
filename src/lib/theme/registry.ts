@@ -1,4 +1,5 @@
 import { ThemeImplementation } from './engine';
+import { tibbAlNabiImpl } from './engines/tibb-al-nabi';
 
 class ThemeEngineRegistry {
   private engines = new Map<string, ThemeImplementation>();
@@ -33,3 +34,6 @@ class ThemeEngineRegistry {
 
 // Export a singleton instance
 export const themeRegistry = new ThemeEngineRegistry();
+
+// Register official themes
+themeRegistry.registerEngine('tibb-al-nabi', tibbAlNabiImpl);
