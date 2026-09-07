@@ -99,9 +99,36 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 7.5 Load Theme if applicable
-    const { resolveThemeInstruction } = await import('@/lib/theme/resolver');
-    const systemInstruction = await resolveThemeInstruction(conversation.theme_id);
+    // 7.5 Load Theme and Execute Deterministic Engine
+    let systemInstruction: string | null = null;
+    if (conversation.theme_id) {
+      const { resolveAuthorizedTheme, buildThemeInstruction } = await import('@/lib/theme/resolver');
+      const { processThemeRequest } = await import('@/lib/theme/processor');
+      
+      const theme = await resolveAuthorizedTheme(conversation.theme_id);
+      systemInstruction = buildThemeInstruction(theme);
+
+      if (theme) {
+        // Find the most recent user message as the primary input
+        let lastUserMessage = null;
+        for (let i = messagesToUse.length - 1; i >= 0; i--) {
+          if (messagesToUse[i].role === 'user') {
+            lastUserMessage = messagesToUse[i];
+            break;
+          }
+        }
+        
+        const input = lastUserMessage?.content || '';
+        const engineResult = await processThemeRequest(theme, input, messagesToUse as unknown as Message[]);
+        
+        if (engineResult) {
+          const contextAddition = `--- System Deterministic Context ---\n${engineResult.explanationContext}`;
+          systemInstruction = systemInstruction 
+            ? `${systemInstruction}\n\n${contextAddition}`
+            : contextAddition;
+        }
+      }
+    }
 
     // 8. Prepare context budget
     const contextMessages = prepareContext(messagesToUse as unknown as Message[]);
