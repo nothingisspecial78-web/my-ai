@@ -44,3 +44,5 @@ next-env.d.ts
 playwright/.auth/ 
 test-results/ 
 playwright-report/
+data/*.docx
+supabase/.temp/
