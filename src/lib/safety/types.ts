@@ -84,7 +84,11 @@ export type FindingType =
   | 'phishing_indicator'
   | 'scam_indicator'
   | 'unverified_claim'
-  | 'syntax_anomaly';
+  | 'syntax_anomaly'
+  | 'reputation_malicious'
+  | 'reputation_suspicious'
+  | 'reputation_disputed'
+  | 'reputation_clean';
 
 // Source of an evidence item
 export type EvidenceSourceType =
@@ -120,6 +124,8 @@ export type RecommendationAction =
   | 'change_password'
   | 'rotate_exposed_secret'
   | 'seek_security_professional_help'
+  | 'avoid_known_malicious_url'
+  | 'verify_reported_threat'
   | 'proceed_with_caution'
   | 'no_action_needed';
 

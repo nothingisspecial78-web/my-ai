@@ -252,6 +252,30 @@ export class RiskEngine {
           priority: 'low',
         });
       }
+
+      if (f.type === 'reputation_malicious') {
+        addRec({
+          action: 'avoid_known_malicious_url',
+          title: 'Avoid Known Malicious Link',
+          description: 'External threat intelligence lists this URL as actively malicious or associated with threats.',
+          priority: 'high',
+        });
+        addRec({
+          action: 'do_not_click',
+          title: 'Do Not Click or Open Link',
+          description: 'Avoid visiting this URL to protect against malware, credential harvesting, or exploitation.',
+          priority: 'high',
+        });
+      }
+
+      if (f.type === 'reputation_suspicious' || f.type === 'reputation_disputed') {
+        addRec({
+          action: 'verify_reported_threat',
+          title: 'Exercise Caution with Flagged Link',
+          description: 'Threat intelligence providers report suspicious activity or conflicting ratings for this link.',
+          priority: 'medium',
+        });
+      }
     }
 
     // Default recommendation if no specific signals were found
