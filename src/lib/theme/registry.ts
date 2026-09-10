@@ -1,5 +1,6 @@
 import { ThemeImplementation } from './engine';
 import { tibbAlNabiImpl } from './engines/tibb-al-nabi';
+import { safetySecurityImpl } from './engines/safety-security';
 
 class ThemeEngineRegistry {
   private engines = new Map<string, ThemeImplementation>();
@@ -37,3 +38,6 @@ export const themeRegistry = new ThemeEngineRegistry();
 
 // Register official themes
 themeRegistry.registerEngine('tibb-al-nabi', tibbAlNabiImpl);
+themeRegistry.registerEngine('safety-checkup', safetySecurityImpl);
+themeRegistry.registerEngine('security-checkup', safetySecurityImpl);
+themeRegistry.registerEngine('safety', safetySecurityImpl);

@@ -1,7 +1,9 @@
 # Ṭibb al-Nabī Knowledge Base Architecture (Phase 4.4)
 
+> **Architectural Note (Phase 4.6)**: The *Ṭibb al-Nabī* knowledge-base infrastructure (`kb_sources`, `kb_sections`, `kb_chunks`, 174 sections, 3,773 chunks) is fully retained and preserved in the database and repository history. However, as of Phase 4.6, the primary specialized theme of MyAI is **Safety & Security Analysis** (`safety-checkup`). Active feature development focuses on digital safety, threat verification, and risk assessment.
+
 ## 1. Purpose
-This document outlines the architecture for the knowledge base that will eventually power the *Ṭibb al-Nabī* (Prophetic Medicine) theme. Phase 4.4 is exclusively a design phase. The objective is to design a strict, future-proof schema that securely handles Arabic source material, distinguishes between exact text and interpretations, safely layers evidence, and seamlessly integrates with the existing deterministic Theme Engine (Phase 4.3).
+This document outlines the architecture for the knowledge base that originally powered the *Ṭibb al-Nabī* (Prophetic Medicine) theme. Phase 4.4 was exclusively a design phase. The objective was to design a strict, future-proof schema that securely handles Arabic source material, distinguishes between exact text and interpretations, safely layers evidence, and seamlessly integrates with the existing deterministic Theme Engine (Phase 4.3).
 
 ## 2. Current Available Source Material
 The sole authoritative knowledge material at this stage is:
