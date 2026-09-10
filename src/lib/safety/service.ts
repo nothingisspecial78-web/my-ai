@@ -12,6 +12,7 @@ import { UrlAnalyzer } from './analyzers/url-analyzer';
 import { MessageScamAnalyzer } from './analyzers/message-scam-analyzer';
 import { CodeSecurityAnalyzer } from './analyzers/code-security-analyzer';
 import { RiskEngine } from './risk-engine';
+import { redactSensitiveText, redactDataRecord } from './redaction';
 
 // Initialize and register default specialized analyzers
 const defaultUrlAnalyzer = new UrlAnalyzer();
@@ -79,6 +80,18 @@ export class SafetyService {
       allFindings.length
     );
 
+    // 6. Apply Privacy Redaction Layer to all findings and evidence before returning
+    const sanitizedFindings = allFindings.map(f => ({
+      ...f,
+      description: redactSensitiveText(f.description),
+    }));
+
+    const sanitizedEvidence = allEvidence.map(ev => ({
+      ...ev,
+      snippet: ev.snippet ? redactSensitiveText(ev.snippet) : undefined,
+      data: redactDataRecord(ev.data),
+    }));
+
     return {
       analysisId,
       inputType,
@@ -87,13 +100,56 @@ export class SafetyService {
       confidenceLevel: evaluation.confidenceLevel,
       score: evaluation.score,
       summary,
-      findings: allFindings,
-      evidence: allEvidence,
+      findings: sanitizedFindings,
+      evidence: sanitizedEvidence,
       recommendations: evaluation.recommendations,
       limitations: evaluation.limitations,
       analyzerResults,
       createdAt,
     };
+  }
+
+  /**
+   * Generates a readable, deterministic markdown response when Gemini is unavailable.
+   */
+  static generateFallbackResponse(report: SafetyReport): string {
+    const riskBadge = report.riskLevel.toUpperCase();
+    const confidence = report.confidenceLevel.toUpperCase();
+
+    let content = `### Safety Checkup Result\n\n`;
+    content += `**Risk Level**: ${riskBadge}  \n`;
+    content += `**Confidence**: ${confidence}  \n`;
+    if (typeof report.score === 'number') {
+      content += `**Heuristic Risk Score**: ${report.score}/100  \n`;
+    }
+    content += `\n${report.summary}\n\n`;
+
+    if (report.findings.length > 0) {
+      content += `#### Detected Indicators\n`;
+      for (const f of report.findings) {
+        content += `- **${f.title}** (${f.severity.toUpperCase()}): ${f.description}\n`;
+      }
+      content += `\n`;
+    } else {
+      content += `#### Detected Indicators\n- No suspicious patterns or threats detected in this input.\n\n`;
+    }
+
+    if (report.recommendations.length > 0) {
+      content += `#### Recommended Actions\n`;
+      for (const r of report.recommendations) {
+        content += `- **${r.title}**: ${r.description}\n`;
+      }
+      content += `\n`;
+    }
+
+    if (report.limitations.length > 0) {
+      content += `#### Analysis Limitations\n`;
+      for (const l of report.limitations) {
+        content += `- ${l}\n`;
+      }
+    }
+
+    return content.trim();
   }
 
   /**

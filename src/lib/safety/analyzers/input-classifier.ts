@@ -15,10 +15,12 @@ export class InputClassifier {
     /\bconst\s+\w+\s*=/,
     /\blet\s+\w+\s*=/,
     /\bvar\s+\w+\s*=/,
-    /\bimport\s+.*\s+from\b/,
+    /\bimport\s+[\w\s,{*]+\s+from\b/,
+    /\bimport\s+[\w\s,]+/,
+    /\bfrom\s+[\w.]+\s+import\b/,
     /\bexport\s+(default\s+)?(class|function|const|let)\b/,
-    /\bdef\s+\w+\s*\(/,
-    /\bclass\s+\w+[\s{:]/,
+    /\bdef\s+\w+\s*\([^)]*\):?/,
+    /\bclass\s+\w+[\s{:(]/,
     /#include\s*<.*>/,
     /<\?php/,
     /\bSELECT\b.*\bFROM\b/i,
@@ -61,9 +63,11 @@ export class InputClassifier {
 
     const trimmed = input.rawContent.trim();
 
-    // 4. URL detection (strict single-line URL or starting with http)
-    if (this.URL_REGEX.test(trimmed) || /^https?:\/\//i.test(trimmed)) {
-      return 'url';
+    // 4. Pure URL detection (strict single token with no whitespace)
+    if (!/\s/.test(trimmed)) {
+      if (this.URL_REGEX.test(trimmed) || /^https?:\/\//i.test(trimmed) || /^www\.[a-zA-Z0-9\-]+\.[a-zA-Z]{2,}/i.test(trimmed)) {
+        return 'url';
+      }
     }
 
     // 5. Email address or raw email headers
@@ -78,7 +82,7 @@ export class InputClassifier {
         codeMatches++;
       }
     }
-    if (codeMatches >= 2 || (codeMatches === 1 && (trimmed.includes(';') || trimmed.includes('{')))) {
+    if (codeMatches >= 2 || (codeMatches >= 1 && (trimmed.includes(';') || trimmed.includes('{') || /:\s*$/m.test(trimmed) || /\breturn\b/.test(trimmed)))) {
       return 'code';
     }
 

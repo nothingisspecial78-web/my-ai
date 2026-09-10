@@ -7,57 +7,71 @@ import {
   Evidence,
   ConfidenceLevel,
 } from '../types';
+import { UrlAnalyzer } from './url-analyzer';
+import { redactSensitiveText } from '../redaction';
 
 /**
  * Deterministic Message, Email & Social Post Scam Analyzer.
- * Identifies social engineering patterns: urgency, OTP requests, fake authority, financial lures.
+ * Identifies social engineering patterns: urgency, OTP requests, fake authority, financial lures,
+ * and extracts/analyzes any embedded links.
  */
 export class MessageScamAnalyzer implements SafetyAnalyzer {
   readonly id = 'message-scam-analyzer';
   readonly type = 'scam' as const;
   readonly supportedInputTypes = ['message', 'email', 'social_post', 'claim'] as const;
 
-  // Pattern categories
+  // Pattern categories (calibrated to minimize false alarms on benign casual text)
   private static URGENCY_PATTERNS = [
-    /\b(immediately|act now|urgent|within (24|12|48) hours|account will be (suspended|closed|locked|terminated)|last chance|final notice)\b/i,
-    /\b(arrest warrant|legal action|court summons|police department)\b/i,
+    /\b(immediately|act now|urgent|within (?:12|24|48) hours|final warning|final notice|last chance|action required)\b/i,
+    /\baccount will be (?:suspended|closed|locked|terminated) today\b/i,
+  ];
+
+  private static THREAT_PATTERNS = [
+    /\b(account (?:has been |is |will be )?(?:suspended|blocked|locked|terminated)|legal action|arrest warrant|court summons|penalty imposed)\b/i,
   ];
 
   private static OTP_PATTERNS = [
-    /\b(one[-\s]?time[-\s]?password|otp|verification code|security code|2fa code|confirm your pin)\b/i,
-    /\b(share (your|the) (code|pin|otp)|send (me|us) (the|your) (code|otp))\b/i,
+    /\b(one[-\s]?time[-\s]?password|otp|verification code|security code|2fa code)\b/i,
+    /\b(share (?:your|the)? (?:code|pin|otp)|send (?:me|us)? (?:the|your)? (?:code|otp)|confirm your pin)\b/i,
   ];
 
   private static CREDENTIAL_PATTERNS = [
-    /\b(verify your (password|account|identity)|update your (credentials|banking|login)|enter your (ssn|social security|credit card))\b/i,
+    /\b(verify your (?:password|account|identity|login)|update your (?:credentials|banking|login)|enter your (?:password|ssn|credentials))\b/i,
   ];
 
-  private static FINANCIAL_LURE_PATTERNS = [
-    /\b(won|winner|lottery|prize|claim your (reward|prize|\$\d+|₹\d+)|guaranteed returns?|make \$\d+ daily|no risk investment)\b/i,
-    /\b(crypto investment opportunity|passive income guaranteed|congratulations you have been selected)\b/i,
+  private static FINANCIAL_REQUEST_PATTERNS = [
+    /\b(send money|payment required|wire transfer|processing fee|paying a (?:processing )?fee|pay (?:a|the) fee|gift card|cryptocurrency transfer|bank details)\b/i,
   ];
 
-  private static IMPERSONATION_PATTERNS = [
-    /\b(internal revenue service|irs|income tax department|fedex delivery|ups package|dhl shipment|usps parcel|customs duty)\b/i,
-    /\b(bank customer support|security team of (apple|google|microsoft|amazon|netflix))\b/i,
+  private static PRIZE_LURE_PATTERNS = [
+    /\b(congratulations|you(?:'ve| have)? won|lottery prize|claim your (?:reward|prize|\$\d+|₹\d+)|selected as winner)\b/i,
+  ];
+
+  // Specific authority or institution spoofing context (avoids matching casual "my bank")
+  private static AUTHORITY_PATTERNS = [
+    /\b(your bank account|bank security|bank customer support|security team of (?:apple|google|microsoft|amazon|netflix))\b/i,
+    /\b(internal revenue service|irs|income tax department|customs duty|fedex delivery|ups package|dhl shipment|usps parcel)\b/i,
   ];
 
   private static SECRECY_PATTERNS = [
     /\b(do not tell anyone|keep this confidential|between you and me|secret assignment|don't tell your family)\b/i,
   ];
 
+  private urlAnalyzer = new UrlAnalyzer();
+
   canAnalyze(input: SafetyInput): boolean {
-    if (input.type && (this.supportedInputTypes as readonly string[]).includes(input.type)) {
-      return true;
+    if (input.type) {
+      return (this.supportedInputTypes as readonly string[]).includes(input.type);
     }
     // Any multi-word message text can be analyzed for scam signals
-    return typeof input.rawContent === 'string' && input.rawContent.trim().length > 10;
+    return typeof input.rawContent === 'string' && input.rawContent.trim().length > 8;
   }
 
   async analyze(input: SafetyInput): Promise<AnalyzerResult> {
     const findings: Finding[] = [];
     const evidence: Evidence[] = [];
-    const text = input.rawContent;
+    const rawText = input.rawContent;
+    const sanitizedText = redactSensitiveText(rawText);
 
     const evidenceId = crypto.randomUUID();
     evidence.push({
@@ -65,15 +79,15 @@ export class MessageScamAnalyzer implements SafetyAnalyzer {
       sourceType: 'content_analysis',
       sourceName: 'Heuristic Content Pattern Matcher',
       description: 'Extracted semantic signals and keyword matches from message text',
-      data: { textLength: text.length },
+      data: { textLength: rawText.length, preview: sanitizedText.substring(0, 120) },
       isAiGenerated: false,
       createdAt: new Date().toISOString(),
     });
 
-    // 1. OTP / 2FA Solicitation (Critical Phishing / Scam Indicator)
+    // 1. OTP / 2FA Solicitation
     let hasOtp = false;
     for (const pattern of MessageScamAnalyzer.OTP_PATTERNS) {
-      if (pattern.test(text)) {
+      if (pattern.test(rawText)) {
         hasOtp = true;
         break;
       }
@@ -82,9 +96,9 @@ export class MessageScamAnalyzer implements SafetyAnalyzer {
       findings.push({
         id: crypto.randomUUID(),
         type: 'otp_request',
-        severity: 'critical',
+        severity: 'high',
         title: 'Request for One-Time Password (OTP) or Verification Code',
-        description: 'Legitimate institutions never ask you to share your OTP or verification code with third parties or via message.',
+        description: 'Legitimate institutions never request your OTP, PIN, or verification code via message.',
         evidenceIds: [evidenceId],
         confidence: 'high',
       });
@@ -93,7 +107,7 @@ export class MessageScamAnalyzer implements SafetyAnalyzer {
     // 2. Direct Credential Solicitation
     let hasCredential = false;
     for (const pattern of MessageScamAnalyzer.CREDENTIAL_PATTERNS) {
-      if (pattern.test(text)) {
+      if (pattern.test(rawText)) {
         hasCredential = true;
         break;
       }
@@ -104,16 +118,16 @@ export class MessageScamAnalyzer implements SafetyAnalyzer {
         type: 'credential_request',
         severity: 'high',
         title: 'Account Verification / Credential Solicitation',
-        description: 'The message pressures the recipient to provide passwords, banking credentials, or personal identification.',
+        description: 'The message pressures the recipient to enter or provide passwords or account login details.',
         evidenceIds: [evidenceId],
         confidence: 'high',
       });
     }
 
-    // 3. Artificial Urgency or Threat Language
+    // 3. Artificial Urgency
     let hasUrgency = false;
     for (const pattern of MessageScamAnalyzer.URGENCY_PATTERNS) {
-      if (pattern.test(text)) {
+      if (pattern.test(rawText)) {
         hasUrgency = true;
         break;
       }
@@ -123,66 +137,124 @@ export class MessageScamAnalyzer implements SafetyAnalyzer {
         id: crypto.randomUUID(),
         type: 'urgency_language',
         severity: 'medium',
-        title: 'High Urgency or Threat Pressure',
-        description: 'Artificial time limits or threats of account suspension/legal action are standard psychological manipulation tactics.',
+        title: 'Urgency Pressure Language',
+        description: 'Artificial time limits ("immediately", "within 24 hours") are standard psychological pressure tactics.',
         evidenceIds: [evidenceId],
         confidence: 'high',
       });
     }
 
-    // 4. Unrealistic Financial Lures
-    let hasFinancialLure = false;
-    for (const pattern of MessageScamAnalyzer.FINANCIAL_LURE_PATTERNS) {
-      if (pattern.test(text)) {
-        hasFinancialLure = true;
+    // 4. Threat Coercion (Account suspended, legal action)
+    let hasThreat = false;
+    for (const pattern of MessageScamAnalyzer.THREAT_PATTERNS) {
+      if (pattern.test(rawText)) {
+        hasThreat = true;
         break;
       }
     }
-    if (hasFinancialLure) {
+    if (hasThreat) {
+      findings.push({
+        id: crypto.randomUUID(),
+        type: 'threat_coercion',
+        severity: 'medium',
+        title: 'Account Suspension or Penalty Threat',
+        description: 'The message warns of account suspension, closure, or legal enforcement to induce panic.',
+        evidenceIds: [evidenceId],
+        confidence: 'high',
+      });
+    }
+
+    // 5. Prize / Reward Lures
+    let hasPrize = false;
+    for (const pattern of MessageScamAnalyzer.PRIZE_LURE_PATTERNS) {
+      if (pattern.test(rawText)) {
+        hasPrize = true;
+        break;
+      }
+    }
+    if (hasPrize) {
+      findings.push({
+        id: crypto.randomUUID(),
+        type: 'prize_lure',
+        severity: 'high',
+        title: 'Unrealistic Prize or Lottery Reward Lure',
+        description: 'Announcements of lottery winnings, unearned prizes, or guaranteed payouts correlate strongly with advance-fee scams.',
+        evidenceIds: [evidenceId],
+        confidence: 'high',
+      });
+    }
+
+    // 6. Financial Requests / Upfront Fees
+    let hasFinancial = false;
+    for (const pattern of MessageScamAnalyzer.FINANCIAL_REQUEST_PATTERNS) {
+      if (pattern.test(rawText)) {
+        hasFinancial = true;
+        break;
+      }
+    }
+    if (hasFinancial) {
       findings.push({
         id: crypto.randomUUID(),
         type: 'financial_request',
         severity: 'high',
-        title: 'Unrealistic Financial Incentive or Lottery Claim',
-        description: 'Offers of guaranteed investment returns, unearned prize money, or lottery winnings strongly correlate with advance-fee scams.',
+        title: 'Payment or Advance Fee Request',
+        description: 'The communication requests money, processing fees, or wire transfers.',
         evidenceIds: [evidenceId],
         confidence: 'high',
       });
     }
 
-    // 5. Authority / Institution Impersonation
-    let hasImpersonation = false;
-    for (const pattern of MessageScamAnalyzer.IMPERSONATION_PATTERNS) {
-      if (pattern.test(text)) {
-        hasImpersonation = true;
+    // 7. Authority / Institutional Impersonation Context
+    let hasAuthority = false;
+    for (const pattern of MessageScamAnalyzer.AUTHORITY_PATTERNS) {
+      if (pattern.test(rawText)) {
+        hasAuthority = true;
         break;
       }
     }
-    if (hasImpersonation) {
+    if (hasAuthority) {
       findings.push({
         id: crypto.randomUUID(),
         type: 'authority_impersonation',
         severity: 'medium',
-        title: 'Delivery, Government, or Tech Support Impersonation Context',
-        description: 'The message references government agencies, shipping couriers, or major tech companies commonly spoofed in fraud campaigns.',
+        title: 'Institutional or Support Impersonation Context',
+        description: 'The message references banking security, postal couriers, or government agencies frequently spoofed in fraud campaigns.',
         evidenceIds: [evidenceId],
         confidence: 'medium',
       });
     }
 
-    // 6. Secrecy Request
+    // 8. Secrecy Request
     for (const pattern of MessageScamAnalyzer.SECRECY_PATTERNS) {
-      if (pattern.test(text)) {
+      if (pattern.test(rawText)) {
         findings.push({
           id: crypto.randomUUID(),
           type: 'scam_indicator',
           severity: 'high',
           title: 'Request for Secrecy or Channel Bypass',
-          description: 'The sender explicitly instructs you not to disclose the communication or verify with colleagues/family.',
+          description: 'The sender explicitly requests confidentiality or asks you not to verify with family or official contacts.',
           evidenceIds: [evidenceId],
           confidence: 'high',
         });
         break;
+      }
+    }
+
+    // ----------------------------------------------------
+    // 9. Embedded Link Extraction & Nested URL Analysis
+    // ----------------------------------------------------
+    const extractedUrls = rawText.match(/(?:https?:\/\/|www\.)[^\s<>"]+/gi) || [];
+    for (const urlStr of extractedUrls) {
+      try {
+        const urlResult = await this.urlAnalyzer.analyze({
+          type: 'url',
+          rawContent: urlStr,
+        });
+        // Merge findings and evidence
+        findings.push(...urlResult.findings);
+        evidence.push(...urlResult.evidence);
+      } catch {
+        // Safe tolerance if an individual embedded URL cannot be analyzed
       }
     }
 
@@ -196,8 +268,9 @@ export class MessageScamAnalyzer implements SafetyAnalyzer {
       findings,
       evidence,
       limitations: [
-        'Analysis is based on linguistic heuristics and known pattern matches.',
-        'Legitimate communications with urgent deadlines can occasionally trigger urgency indicators.',
+        'Analysis is based on linguistic heuristics and observable pattern indicators.',
+        'Legitimate communications may occasionally mention deadlines; context should always be evaluated carefully.',
+        'No external phone number or email sender reputation database was queried.',
       ],
     };
   }

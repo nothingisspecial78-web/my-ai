@@ -101,6 +101,8 @@ export async function POST(req: NextRequest) {
 
     // 7.5 Load Theme and Execute Deterministic Engine
     let systemInstruction: string | null = null;
+    let safetyReport: import('@/lib/safety/types').SafetyReport | null = null;
+
     if (conversation.theme_id) {
       const { resolveAuthorizedTheme, buildThemeInstruction } = await import('@/lib/theme/resolver');
       const { processThemeRequest } = await import('@/lib/theme/processor');
@@ -126,6 +128,16 @@ export async function POST(req: NextRequest) {
           systemInstruction = systemInstruction 
             ? `${systemInstruction}\n\n${contextAddition}`
             : contextAddition;
+
+          if (['safety-checkup', 'security-checkup', 'safety'].includes(theme.slug) && engineResult.result) {
+            safetyReport = engineResult.result as import('@/lib/safety/types').SafetyReport;
+            try {
+              const { SafetyRepository } = await import('@/lib/safety/repository');
+              await SafetyRepository.saveAnalysis(safetyReport, conversationId, lastUserMessage?.id);
+            } catch (saveErr) {
+              console.error('Failed to persist safety analysis:', saveErr);
+            }
+          }
         }
       }
     }
@@ -139,6 +151,31 @@ export async function POST(req: NextRequest) {
       provider = getProvider();
     } catch (err: unknown) {
       logger.error('api.chat', 'Provider instantiation failed', { userId, error: sanitizeErrorForClient(err) });
+      if (safetyReport) {
+        // Fallback without Gemini: stream deterministic safety response directly
+        const { SafetyService } = await import('@/lib/safety/service');
+        const fallbackText = SafetyService.generateFallbackResponse(safetyReport);
+        const fallbackStream = new ReadableStream({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode(JSON.stringify({ type: 'start' }) + '\n'));
+            controller.enqueue(new TextEncoder().encode(JSON.stringify({ type: 'chunk', text: fallbackText }) + '\n'));
+            controller.enqueue(new TextEncoder().encode(JSON.stringify({
+              type: 'done',
+              usage: { input_tokens: 0, output_tokens: 0 },
+              metadata: { model: 'deterministic-fallback', provider: 'SafetyCheckup', safetyReport }
+            }) + '\n'));
+            controller.close();
+          }
+        });
+        streamTookOwnership = true;
+        return new Response(fallbackStream, {
+          headers: {
+            'Content-Type': 'application/x-ndjson',
+            'Cache-Control': 'no-cache, no-transform',
+            'Connection': 'keep-alive',
+          },
+        });
+      }
       return jsonError('AI service is currently unavailable', 500);
     }
 
@@ -176,6 +213,16 @@ export async function POST(req: NextRequest) {
               break;
             }
             
+            // Attach safetyReport to done metadata so client can render structured card
+            if (event.type === 'done' && safetyReport) {
+              event.metadata = {
+                model: event.metadata?.model || 'ai-model',
+                provider: event.metadata?.provider || 'ai-provider',
+                ...event.metadata,
+                safetyReport,
+              };
+            }
+
             const chunk = new TextEncoder().encode(JSON.stringify(event) + '\n');
             controller.enqueue(chunk);
           }
@@ -194,8 +241,25 @@ export async function POST(req: NextRequest) {
               error: sanitizeErrorForClient(error),
               durationMs: Date.now() - startTime,
             });
-            const errorEvent = { type: 'error', error: sanitizeErrorForClient(error) };
-            controller.enqueue(new TextEncoder().encode(JSON.stringify(errorEvent) + '\n'));
+
+            // Requirement 11: If Gemini fails, deliver deterministic fallback response
+            if (safetyReport) {
+              const { SafetyService } = await import('@/lib/safety/service');
+              const fallbackText = SafetyService.generateFallbackResponse(safetyReport);
+              controller.enqueue(new TextEncoder().encode(JSON.stringify({ type: 'chunk', text: fallbackText }) + '\n'));
+              controller.enqueue(new TextEncoder().encode(JSON.stringify({
+                type: 'done',
+                usage: { input_tokens: 0, output_tokens: 0 },
+                metadata: {
+                  model: 'deterministic-fallback',
+                  provider: 'SafetyCheckup',
+                  safetyReport,
+                },
+              }) + '\n'));
+            } else {
+              const errorEvent = { type: 'error', error: sanitizeErrorForClient(error) };
+              controller.enqueue(new TextEncoder().encode(JSON.stringify(errorEvent) + '\n'));
+            }
           }
         } finally {
           req.signal.removeEventListener('abort', abortHandler);

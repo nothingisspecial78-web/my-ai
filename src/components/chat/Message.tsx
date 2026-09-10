@@ -13,6 +13,8 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { cn } from '@/lib/utils';
 import { Attachment } from '@/lib/ai/types';
+import { SafetyAnalysisCard } from '@/components/safety/SafetyAnalysisCard';
+import { SafetyReport } from '@/lib/safety/types';
 
 interface MessageProps {
   id?: string;
@@ -34,6 +36,7 @@ function MessageComponent({ id, role, content, isLast, onRegenerate, timestamp, 
   // Extract attachments from metadata if present
   const attachments = (metadata?.attachments as Attachment[]) || [];
   const imageAttachments = attachments.filter(a => a.type === 'image' && a.url);
+  const safetyReport = (metadata?.safetyReport as SafetyReport | undefined) || undefined;
 
   const handleCopy = () => {
     if (navigator.clipboard) {
@@ -118,6 +121,9 @@ function MessageComponent({ id, role, content, isLast, onRegenerate, timestamp, 
         {/* Content Box */}
         <div className="flex-1 min-w-0">
           <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-5 shadow-sm">
+            {safetyReport && (
+              <SafetyAnalysisCard report={safetyReport} />
+            )}
             {isThinking ? (
               <div className="flex items-center gap-1.5 h-6 opacity-70">
                 <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse [animation-delay:-0.3s]"></div>

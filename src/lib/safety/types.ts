@@ -53,6 +53,12 @@ export type FindingSeverity = 'info' | 'low' | 'medium' | 'high' | 'critical';
 export type FindingType =
   | 'suspicious_domain'
   | 'lookalike_domain'
+  | 'lookalike_brand'
+  | 'suspicious_keyword'
+  | 'host_confusion'
+  | 'private_network_host'
+  | 'excessive_subdomains'
+  | 'excessive_encoding'
   | 'suspicious_redirect'
   | 'insecure_protocol'
   | 'ip_as_host'
@@ -60,7 +66,9 @@ export type FindingType =
   | 'credential_in_url'
   | 'credential_request'
   | 'urgency_language'
+  | 'threat_coercion'
   | 'financial_request'
+  | 'prize_lure'
   | 'otp_request'
   | 'authority_impersonation'
   | 'suspicious_attachment'
@@ -104,6 +112,9 @@ export type RecommendationAction =
   | 'do_not_enter_password'
   | 'verify_sender'
   | 'verify_domain'
+  | 'verify_destination_host'
+  | 'verify_financial_claim'
+  | 'use_https'
   | 'contact_official_source'
   | 'scan_file_before_opening'
   | 'change_password'
@@ -162,6 +173,8 @@ export interface Evidence {
   id: string;
   sourceType: EvidenceSourceType;
   sourceName: string;
+  label?: string;
+  snippet?: string;
   description: string;
   data: Record<string, unknown>;
   isAiGenerated: boolean;

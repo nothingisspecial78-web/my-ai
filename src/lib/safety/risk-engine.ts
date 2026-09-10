@@ -93,17 +93,26 @@ export class RiskEngine {
       infoCount * 1;
     const score = Math.min(100, Math.max(0, rawScore));
 
-    // Determine deterministic risk level based on severity patterns
+    // Determine deterministic risk level based on calibrated severity patterns
+    // Requirement:
+    // - Single weak signal (e.g. HTTP alone, shortened URL alone, urgency alone) -> low
+    // - OTP request or multiple medium signals -> medium or high depending on context
+    // - Phishing combinations (e.g. Credential + suspicious URL, or OTP + bank + urgency) -> high
+    // - Critical remains rare (requires explicit critical severity finding like exposed secrets or active multi-vector credential theft)
     let riskLevel: RiskLevel;
 
-    if (criticalCount > 0) {
+    const hasCriticalSeverity = criticalCount > 0;
+    const hasPhishingCombo =
+      (highCount >= 2) ||
+      (highCount >= 1 && (mediumCount >= 1 || lowCount >= 2)) ||
+      (mediumCount >= 2 && score >= 25);
+
+    if (hasCriticalSeverity || (highCount >= 2 && score >= 75 && findings.some(f => f.type === 'otp_request' || f.type === 'credential_request') && findings.some(f => f.type === 'lookalike_brand' || f.type === 'host_confusion'))) {
       riskLevel = 'critical';
-    } else if (highCount >= 1 || (mediumCount >= 2 && score >= 20)) {
+    } else if (hasPhishingCombo || highCount >= 1) {
       riskLevel = 'high';
     } else if (mediumCount >= 1 || lowCount >= 2) {
       riskLevel = 'medium';
-    } else if (findings.length === 0) {
-      riskLevel = 'low';
     } else {
       riskLevel = 'low';
     }
@@ -152,7 +161,7 @@ export class RiskEngine {
         addRec({
           action: 'do_not_share_otp',
           title: 'Never Share One-Time Passwords (OTPs)',
-          description: 'Do not disclose verification codes to anyone via call, message, or email.',
+          description: 'Do not disclose verification codes or PINs to anyone via call, message, or email.',
           priority: 'high',
         });
       }
@@ -166,7 +175,16 @@ export class RiskEngine {
         });
       }
 
-      if (f.type === 'lookalike_domain' || f.type === 'suspicious_domain' || f.type === 'ip_as_host') {
+      if (f.type === 'host_confusion') {
+        addRec({
+          action: 'verify_destination_host',
+          title: 'Verify Actual Destination Host',
+          description: 'The URL uses misleading userinfo/syntax to hide its true destination. Avoid visiting it.',
+          priority: 'high',
+        });
+      }
+
+      if (f.type === 'lookalike_domain' || f.type === 'lookalike_brand') {
         addRec({
           action: 'verify_domain',
           title: 'Verify Official Website Directly',
@@ -175,17 +193,35 @@ export class RiskEngine {
         });
         addRec({
           action: 'do_not_click',
+          title: 'Avoid Clicking Lookalike Links',
+          description: 'Refrain from opening the link or interacting with its contents.',
+          priority: 'medium',
+        });
+      }
+
+      if (f.type === 'suspicious_domain' || f.type === 'ip_as_host') {
+        addRec({
+          action: 'do_not_click',
           title: 'Avoid Clicking Unverified Links',
           description: 'Refrain from opening the link or interacting with its contents.',
           priority: 'medium',
         });
       }
 
-      if (f.type === 'authority_impersonation' || f.type === 'urgency_language' || f.type === 'financial_request') {
+      if (f.type === 'prize_lure' || f.type === 'financial_request') {
+        addRec({
+          action: 'verify_financial_claim',
+          title: 'Do Not Send Funds or Pay Upfront Fees',
+          description: 'Legitimate lotteries and organizations never ask for processing fees or gift cards to release winnings or services.',
+          priority: 'high',
+        });
+      }
+
+      if (f.type === 'threat_coercion' || f.type === 'authority_impersonation' || f.type === 'urgency_language') {
         addRec({
           action: 'contact_official_source',
           title: 'Contact Official Organization via Trusted Channels',
-          description: 'Verify unexpected claims or delivery notices through official numbers or verified portals.',
+          description: 'Verify unexpected account suspension claims or notices through official portals or customer support.',
           priority: 'medium',
         });
       }
@@ -205,6 +241,15 @@ export class RiskEngine {
           title: 'Avoid Opening or Executing Untrusted Files',
           description: 'Ensure files are inspected in an isolated environment before interacting with them.',
           priority: 'high',
+        });
+      }
+
+      if (f.type === 'insecure_protocol') {
+        addRec({
+          action: 'use_https',
+          title: 'Use Secure HTTPS Connection',
+          description: 'This link uses unencrypted HTTP. Do not submit sensitive data over unencrypted connections.',
+          priority: 'low',
         });
       }
     }

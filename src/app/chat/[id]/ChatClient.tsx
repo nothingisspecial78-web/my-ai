@@ -250,6 +250,9 @@ export function ChatClient({ conversation, initialMessages }: ChatClientProps) {
               } else if (event.type === 'done') {
                 usageMetadata = event.usage || null;
                 modelMetadata = event.metadata || null;
+                if (event.metadata) {
+                  setMessages(prev => prev.map(m => m.id === tempAiId ? { ...m, metadata: event.metadata as unknown as Json } : m));
+                }
               } else if (event.type === 'error') {
                 isError = true;
                 throw new Error(event.error);

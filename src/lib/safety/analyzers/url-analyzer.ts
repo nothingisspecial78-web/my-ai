@@ -7,36 +7,48 @@ import {
   Evidence,
   ConfidenceLevel,
 } from '../types';
+import { redactUrl } from '../redaction';
 
 /**
- * Deterministic URL and Link Analyzer.
- * Analyzes structure, protocol, domain characteristics, punycode, shortening, and query anomalies.
+ * Deterministic Lexical URL & Link Analyzer.
+ * Performs rigorous offline structural, protocol, hostname, homograph, and credential checks.
+ * NEVER visits, navigates, executes, or fetches from the target URL.
  */
 export class UrlAnalyzer implements SafetyAnalyzer {
   readonly id = 'url-analyzer';
   readonly type = 'url' as const;
   readonly supportedInputTypes = ['url', 'website', 'qr'] as const;
 
-  // Known high-risk / abused TLDs (heuristic signal, not definitive proof)
+  // Known high-risk / abused TLDs (heuristic indicator)
   private static SUSPICIOUS_TLDS = new Set([
     'zip', 'mov', 'top', 'xyz', 'country', 'kim', 'work', 'gq', 'cf', 'tk', 'ml', 'ga', 'buzz',
+    'fit', 'rest', 'surf', 'live',
   ]);
 
   // Common URL shortening domains
   private static SHORTENER_DOMAINS = new Set([
-    'bit.ly', 'tinyurl.com', 't.co', 'goo.gl', 'is.gd', 'buff.ly', 'ow.ly', 'rebrand.ly',
+    'bit.ly', 'tinyurl.com', 't.co', 'goo.gl', 'is.gd', 'cutt.ly', 'rebrand.ly', 'ow.ly', 'buff.ly',
   ]);
 
-  // Major brand targets for lookalike impersonation heuristics
+  // Major brand keywords for lookalike / spoofing heuristics
   private static BRAND_KEYWORDS = [
-    'paypal', 'apple', 'microsoft', 'google', 'amazon', 'netflix', 'facebook', 'instagram', 'whatsapp', 'chase', 'bankofamerica', 'wellsfargo',
+    'paypal', 'apple', 'microsoft', 'google', 'amazon', 'netflix', 'facebook', 'instagram', 'whatsapp',
+    'chase', 'bankofamerica', 'wellsfargo', 'binance', 'coinbase',
   ];
+
+  // Suspicious security/login keywords in URL paths or subdomains
+  private static SUSPICIOUS_KEYWORDS = [
+    'login', 'signin', 'sign-in', 'verify', 'verification', 'account', 'security', 'update',
+    'password', 'wallet', 'bank', 'payment', 'recover', 'unlock', 'confirm', 'urgent', 'support',
+  ];
+
+  // Common private or local network IPv4 ranges
+  private static PRIVATE_IP_REGEX = /^(?:127\.\d{1,3}\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|169\.254\.\d{1,3}\.\d{1,3})$/;
 
   canAnalyze(input: SafetyInput): boolean {
     if (input.type && (this.supportedInputTypes as readonly string[]).includes(input.type)) {
       return true;
     }
-    // Also accept if content starts with http or looks like a URL
     const text = input.rawContent.trim();
     return /^https?:\/\//i.test(text) || /^www\./i.test(text);
   }
@@ -67,30 +79,36 @@ export class UrlAnalyzer implements SafetyAnalyzer {
         confidence: 'medium',
         findings,
         evidence: [],
-        limitations: ['URL could not be parsed into valid components; full domain checks skipped.'],
+        limitations: ['URL could not be parsed into valid components; full lexical checks skipped.'],
       };
     }
 
+    const sanitizedUrl = redactUrl(urlStr);
     const evidenceId = crypto.randomUUID();
+
     evidence.push({
       id: evidenceId,
       sourceType: 'url_analysis',
-      sourceName: 'Deterministic URL Parser',
-      description: 'Extracted URL components and metadata',
+      sourceName: 'Deterministic Lexical URL Parser',
+      description: 'Extracted URL components and lexical metadata',
       data: {
+        rawUrl: sanitizedUrl,
         protocol: parsedUrl.protocol,
         hostname: parsedUrl.hostname,
         pathname: parsedUrl.pathname,
-        search: parsedUrl.search,
         port: parsedUrl.port || (parsedUrl.protocol === 'https:' ? '443' : '80'),
+        hasUsername: Boolean(parsedUrl.username),
       },
       isAiGenerated: false,
       createdAt: new Date().toISOString(),
     });
 
     const hostname = parsedUrl.hostname.toLowerCase();
+    const pathname = parsedUrl.pathname.toLowerCase();
 
-    // 1. Protocol check (Insecure HTTP)
+    // ----------------------------------------------------
+    // A. Protocol Analysis
+    // ----------------------------------------------------
     if (parsedUrl.protocol === 'http:') {
       findings.push({
         id: crypto.randomUUID(),
@@ -101,39 +119,131 @@ export class UrlAnalyzer implements SafetyAnalyzer {
         evidenceIds: [evidenceId],
         confidence: 'high',
       });
-    }
-
-    // 2. IP Address used directly as hostname
-    const isIpv4 = /^(?:\d{1,3}\.){3}\d{1,3}$/.test(hostname);
-    if (isIpv4) {
+    } else if (parsedUrl.protocol !== 'https:') {
       findings.push({
         id: crypto.randomUUID(),
-        type: 'ip_as_host',
-        severity: 'high',
-        title: 'Direct IP Address Hostname',
-        description: 'The URL uses a raw IP address instead of a registered domain name. This is frequently used to bypass domain reputation filters.',
+        type: 'syntax_anomaly',
+        severity: 'medium',
+        title: `Unusual Protocol (${parsedUrl.protocol})`,
+        description: `The URL uses a non-standard web protocol "${parsedUrl.protocol}".`,
         evidenceIds: [evidenceId],
         confidence: 'high',
-        metadata: { ip: hostname },
       });
     }
 
-    // 3. Shortened URL Detection
+    // ----------------------------------------------------
+    // B. Credential Tricks & Host Confusion (@ symbol)
+    // ----------------------------------------------------
+    if (parsedUrl.username || rawUrl.includes('@')) {
+      findings.push({
+        id: crypto.randomUUID(),
+        type: 'host_confusion',
+        severity: 'high',
+        title: 'Misleading Embedded Credentials / Host Confusion (@)',
+        description: `The URL uses embedded authentication (@) confusing the apparent authority "${parsedUrl.username || 'user'}" with the actual destination host "${hostname}".`,
+        evidenceIds: [evidenceId],
+        confidence: 'high',
+        metadata: {
+          actualHostname: hostname,
+          apparentHostname: parsedUrl.username || undefined,
+        },
+      });
+    }
+
+    // ----------------------------------------------------
+    // C. Hostname & IP Address Analysis
+    // ----------------------------------------------------
+    const isIpv4 = /^(?:\d{1,3}\.){3}\d{1,3}$/.test(hostname);
+    if (isIpv4 || hostname === 'localhost') {
+      const isPrivate = UrlAnalyzer.PRIVATE_IP_REGEX.test(hostname) || hostname === 'localhost';
+
+      findings.push({
+        id: crypto.randomUUID(),
+        type: 'ip_as_host',
+        severity: isPrivate ? 'low' : 'medium',
+        title: isPrivate ? 'Private IP Address as Host' : 'Direct Public IP Address Hostname',
+        description: isPrivate
+          ? `The URL uses a private IP address (${hostname}).`
+          : 'The URL uses a raw IP address instead of a domain name, which obscures the organizational identity of the host.',
+        evidenceIds: [evidenceId],
+        confidence: 'high',
+        metadata: { ip: hostname, isPrivate },
+      });
+
+      if (isPrivate) {
+        findings.push({
+          id: crypto.randomUUID(),
+          type: 'private_network_host',
+          severity: 'low',
+          title: 'Private Network or Localhost Address',
+          description: `The URL references a private or local network host (${hostname}). This is typical for internal device or router interfaces.`,
+          evidenceIds: [evidenceId],
+          confidence: 'high',
+          metadata: { host: hostname },
+        });
+      }
+    }
+
+    // Excessive subdomains check (e.g. login.secure.bank.update.example.com)
+    const hostParts = hostname.split('.');
+    if (!isIpv4 && hostParts.length > 4) {
+      findings.push({
+        id: crypto.randomUUID(),
+        type: 'excessive_subdomains',
+        severity: 'medium',
+        title: 'Excessive Subdomain Levels',
+        description: `The domain contains ${hostParts.length} labels, a structure often used to obfuscate destination domain hierarchy.`,
+        evidenceIds: [evidenceId],
+        confidence: 'medium',
+      });
+    }
+
+    // Suspicious hostname length
+    if (hostname.length > 50) {
+      findings.push({
+        id: crypto.randomUUID(),
+        type: 'suspicious_domain',
+        severity: 'medium',
+        title: 'Unusually Long Hostname',
+        description: `The hostname is ${hostname.length} characters long, which is statistically uncommon for legitimate commercial domains.`,
+        evidenceIds: [evidenceId],
+        confidence: 'medium',
+      });
+    }
+
+    // Excessive hyphens in hostname (>= 3 hyphens)
+    const hyphenCount = (hostname.match(/-/g) || []).length;
+    if (hyphenCount >= 3) {
+      findings.push({
+        id: crypto.randomUUID(),
+        type: 'suspicious_domain',
+        severity: 'medium',
+        title: 'Multiple Hyphens in Hostname',
+        description: 'The domain contains multiple consecutive hyphens, frequently seen in spoofed registration strings.',
+        evidenceIds: [evidenceId],
+        confidence: 'medium',
+      });
+    }
+
+    // ----------------------------------------------------
+    // D. URL Shortening Services
+    // ----------------------------------------------------
     if (UrlAnalyzer.SHORTENER_DOMAINS.has(hostname)) {
       findings.push({
         id: crypto.randomUUID(),
         type: 'shortened_url',
-        severity: 'medium',
+        severity: 'low',
         title: 'URL Shortening Service Detected',
-        description: `The link uses a URL shortener (${hostname}) which obscures the ultimate destination.`,
+        description: `The link uses a URL shortener (${hostname}) which obscures the final destination.`,
         evidenceIds: [evidenceId],
         confidence: 'high',
       });
     }
 
-    // 4. Suspicious or abusive TLD
-    const parts = hostname.split('.');
-    const tld = parts.length > 1 ? parts[parts.length - 1] : '';
+    // ----------------------------------------------------
+    // E. High-Risk / Abused TLDs
+    // ----------------------------------------------------
+    const tld = hostParts.length > 1 ? hostParts[hostParts.length - 1] : '';
     if (UrlAnalyzer.SUSPICIOUS_TLDS.has(tld)) {
       findings.push({
         id: crypto.randomUUID(),
@@ -147,55 +257,129 @@ export class UrlAnalyzer implements SafetyAnalyzer {
       });
     }
 
-    // 5. Lookalike / Brand Impersonation in subdomain or path
-    for (const brand of UrlAnalyzer.BRAND_KEYWORDS) {
-      const brandInHost = hostname.includes(brand);
-      const brandInPath = parsedUrl.pathname.toLowerCase().includes(brand);
-      if (brandInHost || brandInPath) {
-        const isOfficial = hostname === `${brand}.com` || hostname.endsWith(`.${brand}.com`);
-        if (!isOfficial) {
-          findings.push({
-            id: crypto.randomUUID(),
-            type: 'lookalike_domain',
-            severity: 'high',
-            title: `Potential Brand Impersonation (${brand})`,
-            description: `The URL references brand keyword "${brand}" on an unofficial host or path.`,
-            evidenceIds: [evidenceId],
-            confidence: 'high',
-            metadata: { brand, hostname },
-          });
+    // ----------------------------------------------------
+    // F. Lookalike-Brand & Character Substitution Patterns
+    // ----------------------------------------------------
+    const lookalikeMatch = this.detectLookalikePattern(hostname, pathname);
+    if (lookalikeMatch) {
+      findings.push({
+        id: crypto.randomUUID(),
+        type: 'lookalike_brand',
+        severity: 'high',
+        title: 'Possible Lookalike-Brand Pattern',
+        description: `The domain or path contains character patterns ("${lookalikeMatch.pattern}") resembling known brand "${lookalikeMatch.brand}".`,
+        evidenceIds: [evidenceId],
+        confidence: 'high',
+        metadata: { brand: lookalikeMatch.brand, pattern: lookalikeMatch.pattern },
+      });
+    } else {
+      // Standard exact brand check on unofficial domains
+      for (const brand of UrlAnalyzer.BRAND_KEYWORDS) {
+        const brandInHost = hostname.includes(brand);
+        const brandInPath = pathname.includes(`/${brand}`);
+        if (brandInHost || brandInPath) {
+          const isOfficial = hostname === `${brand}.com` || hostname.endsWith(`.${brand}.com`);
+          if (!isOfficial) {
+            findings.push({
+              id: crypto.randomUUID(),
+              type: 'lookalike_domain',
+              severity: 'high',
+              title: 'Possible Lookalike-Brand Pattern',
+              description: `The URL references brand keyword "${brand}" on an unofficial domain or path.`,
+              evidenceIds: [evidenceId],
+              confidence: 'high',
+              metadata: { brand, hostname },
+            });
+            break;
+          }
         }
       }
     }
 
-    // 6. Punycode / Internationalized Domain Name (IDN) homograph hint
+    // Punycode / IDN homograph check
     if (hostname.startsWith('xn--') || hostname.includes('.xn--')) {
       findings.push({
         id: crypto.randomUUID(),
         type: 'lookalike_domain',
         severity: 'medium',
         title: 'Punycode / IDN Domain Detected',
-        description: 'The domain uses Punycode character encoding (xn--). Attackers often use lookalike Unicode characters to spoof legitimate brand domains.',
+        description: 'The domain uses Punycode character encoding (xn--). Lookalike Unicode characters can visually spoof legitimate domains.',
         evidenceIds: [evidenceId],
         confidence: 'high',
       });
     }
 
-    // 7. Sensitive credentials/tokens in query string
-    const search = parsedUrl.search.toLowerCase();
+    // ----------------------------------------------------
+    // G. Suspicious Keywords (login, verify, account, etc.)
+    // ----------------------------------------------------
+    const matchedKeywords: string[] = [];
+    for (const kw of UrlAnalyzer.SUSPICIOUS_KEYWORDS) {
+      if (pathname.includes(kw) || hostname.includes(kw)) {
+        matchedKeywords.push(kw);
+      }
+    }
+    if (matchedKeywords.length > 0) {
+      findings.push({
+        id: crypto.randomUUID(),
+        type: 'suspicious_keyword',
+        severity: 'low',
+        title: 'Security- or Account-Related Keywords Detected',
+        description: `The URL contains keywords often targeted in authentication flows (${matchedKeywords.slice(0, 3).join(', ')}).`,
+        evidenceIds: [evidenceId],
+        confidence: 'medium',
+        metadata: { keywords: matchedKeywords },
+      });
+    }
+
+    // ----------------------------------------------------
+    // H. Sensitive Query Values & Tokens
+    // ----------------------------------------------------
+    const searchLower = parsedUrl.search.toLowerCase();
     if (
-      search.includes('token=') ||
-      search.includes('password=') ||
-      search.includes('passwd=') ||
-      search.includes('apikey=') ||
-      search.includes('secret=')
+      searchLower.includes('token=') ||
+      searchLower.includes('password=') ||
+      searchLower.includes('passwd=') ||
+      searchLower.includes('pwd=') ||
+      searchLower.includes('apikey=') ||
+      searchLower.includes('api_key=') ||
+      searchLower.includes('secret=') ||
+      searchLower.includes('otp=') ||
+      searchLower.includes('pin=')
     ) {
       findings.push({
         id: crypto.randomUUID(),
         type: 'credential_in_url',
         severity: 'high',
         title: 'Sensitive Credential or Token in URL Query',
-        description: 'The URL includes authentication tokens or passwords in plain text query parameters.',
+        description: 'The URL includes authentication credentials, passwords, or tokens in plain text query parameters.',
+        evidenceIds: [evidenceId],
+        confidence: 'high',
+      });
+    }
+
+    // ----------------------------------------------------
+    // I. Excessive Encoding & Nested Redirect URLs
+    // ----------------------------------------------------
+    if (/%25|%20%20/i.test(parsedUrl.search) || /%25/i.test(parsedUrl.pathname)) {
+      findings.push({
+        id: crypto.randomUUID(),
+        type: 'excessive_encoding',
+        severity: 'medium',
+        title: 'Double or Excessive Percent Encoding',
+        description: 'The URL contains repeated percent-encoding patterns, which can be used to evade simple pattern filters.',
+        evidenceIds: [evidenceId],
+        confidence: 'high',
+      });
+    }
+
+    // Detect nested redirect targets (e.g. ?redirect=https://... or ?url=http://...)
+    if (/(?:url|redirect|dest|target|next|return)=(?:https?%3a%2f%2f|https?:\/\/)/i.test(parsedUrl.search)) {
+      findings.push({
+        id: crypto.randomUUID(),
+        type: 'suspicious_redirect',
+        severity: 'medium',
+        title: 'Embedded Redirect Destination Parameter',
+        description: 'The URL contains an open redirect destination parameter pointing to an external web location.',
         evidenceIds: [evidenceId],
         confidence: 'high',
       });
@@ -211,9 +395,40 @@ export class UrlAnalyzer implements SafetyAnalyzer {
       findings,
       evidence,
       limitations: [
-        'Domain reputation, DNS resolution, and live destination redirects were not contacted to protect user privacy.',
+        'The website was not visited or fetched.',
+        'No external reputation database (e.g. Google Safe Browsing or VirusTotal) was queried in this phase.',
         'HTTPS presence indicates transport encryption only, not site safety or legitimacy.',
       ],
     };
+  }
+
+  /**
+   * Helper detecting common typosquatting / character substitutions (0 -> o, 1 -> l/i, etc.)
+   */
+  private detectLookalikePattern(hostname: string, pathname: string): { brand: string; pattern: string } | null {
+    const full = `${hostname}/${pathname}`.toLowerCase();
+
+    // Map of common substitution patterns (e.g. paypa1 -> paypal, micros0ft -> microsoft)
+    const normalized = full
+      .replace(/0/g, 'o')
+      .replace(/1/g, 'l')
+      .replace(/5/g, 's')
+      .replace(/vv/g, 'w');
+
+    for (const brand of UrlAnalyzer.BRAND_KEYWORDS) {
+      if (normalized.includes(brand)) {
+        // If the brand is detected in normalized form, check if the original had a character substitution
+        const brandL1 = brand.replace(/l/g, '1').replace(/o/g, '0');
+        if (full.includes(brandL1) || full.includes(brand.replace(/l/g, '1')) || full.includes(brand.replace(/o/g, '0'))) {
+          // It's a genuine substitution pattern
+          const isOfficial = hostname === `${brand}.com` || hostname.endsWith(`.${brand}.com`);
+          if (!isOfficial) {
+            return { brand, pattern: brandL1 };
+          }
+        }
+      }
+    }
+
+    return null;
   }
 }

@@ -55,6 +55,7 @@ export type AIStreamDoneEvent = {
   metadata?: {
     model: string;
     provider: string;
+    [key: string]: unknown;
   };
 };
 
