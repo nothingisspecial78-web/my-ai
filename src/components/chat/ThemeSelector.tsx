@@ -3,7 +3,16 @@
 import { useEffect, useState } from 'react';
 import { getThemes } from '@/lib/database';
 import { Theme, parseTheme } from '@/lib/theme/types';
-import { Globe, Calculator, Code, BookOpen, ChevronDown, Check } from 'lucide-react';
+import {
+  Globe,
+  Calculator,
+  Code,
+  BookOpen,
+  ShieldCheck,
+  ShieldAlert,
+  ChevronDown,
+  Check
+} from 'lucide-react';
 
 interface ThemeSelectorProps {
   selectedThemeId: string | null;
@@ -16,6 +25,8 @@ const ICONS: Record<string, React.ReactNode> = {
   Calculator: <Calculator size={16} />,
   Code: <Code size={16} />,
   BookOpen: <BookOpen size={16} />,
+  ShieldCheck: <ShieldCheck size={16} className="text-emerald-500" />,
+  ShieldAlert: <ShieldAlert size={16} className="text-rose-500" />,
 };
 
 export function ThemeSelector({ selectedThemeId, onSelect, disabled }: ThemeSelectorProps) {
@@ -27,7 +38,9 @@ export function ThemeSelector({ selectedThemeId, onSelect, disabled }: ThemeSele
     async function loadThemes() {
       try {
         const data = await getThemes();
-        setThemes(data.map(parseTheme));
+        // Filter out duplicate database 'general' theme; the hardcoded option represents selectedThemeId = null
+        const selectable = data.filter(t => t.slug !== 'general');
+        setThemes(selectable.map(parseTheme));
       } catch (err) {
         console.error('Failed to load themes', err);
       } finally {

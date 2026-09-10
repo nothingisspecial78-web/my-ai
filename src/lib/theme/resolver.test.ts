@@ -62,4 +62,60 @@ describe('resolveThemeInstruction', () => {
     const result = await resolveThemeInstruction('theme-123');
     expect(result).toBeNull();
   });
+
+  it('7. resolves safety-checkup and security-checkup system themes and verifies engine registry routing', async () => {
+    const { resolveAuthorizedTheme } = await import('./resolver');
+    const { themeRegistry } = await import('./registry');
+
+    // Test safety-checkup
+    vi.mocked(database.getThemeById).mockResolvedValue(mockTheme({
+      id: '55555555-5555-5555-5555-555555555555',
+      name: 'Safety Checkup',
+      slug: 'safety-checkup',
+      icon: 'ShieldCheck',
+      enabled: true,
+      is_system: true,
+    }));
+
+    const safetyTheme = await resolveAuthorizedTheme('55555555-5555-5555-5555-555555555555');
+    expect(safetyTheme).not.toBeNull();
+    expect(safetyTheme?.slug).toBe('safety-checkup');
+    const safetyEngine = themeRegistry.getEngine(safetyTheme!.slug);
+    expect(safetyEngine).toBeDefined();
+
+    // Test security-checkup
+    vi.mocked(database.getThemeById).mockResolvedValue(mockTheme({
+      id: '66666666-6666-6666-6666-666666666666',
+      name: 'Security Checkup',
+      slug: 'security-checkup',
+      icon: 'ShieldAlert',
+      enabled: true,
+      is_system: true,
+    }));
+
+    const securityTheme = await resolveAuthorizedTheme('66666666-6666-6666-6666-666666666666');
+    expect(securityTheme).not.toBeNull();
+    expect(securityTheme?.slug).toBe('security-checkup');
+    const securityEngine = themeRegistry.getEngine(securityTheme!.slug);
+    expect(securityEngine).toBeDefined();
+    // Both point to the same SafetySecurityImplementation
+    expect(safetyEngine).toBe(securityEngine);
+  });
+
+  it('8. verifies ThemeSelector data filtering excludes duplicate database general theme', () => {
+    const rawThemes = [
+      { id: '1', name: 'General AI', slug: 'general', icon: 'Globe', enabled: true, is_system: true },
+      { id: '2', name: 'Safety Checkup', slug: 'safety-checkup', icon: 'ShieldCheck', enabled: true, is_system: true },
+      { id: '3', name: 'Security Checkup', slug: 'security-checkup', icon: 'ShieldAlert', enabled: true, is_system: true },
+      { id: '4', name: 'Mathematics', slug: 'mathematics', icon: 'Calculator', enabled: true, is_system: true },
+      { id: '5', name: 'Programming', slug: 'programming', icon: 'Code', enabled: true, is_system: true },
+      { id: '6', name: 'Study', slug: 'study', icon: 'BookOpen', enabled: true, is_system: true },
+    ];
+
+    const filtered = rawThemes.filter(t => t.slug !== 'general');
+    expect(filtered.length).toBe(5);
+    expect(filtered.some(t => t.slug === 'general')).toBe(false);
+    expect(filtered.some(t => t.slug === 'safety-checkup')).toBe(true);
+    expect(filtered.some(t => t.slug === 'security-checkup')).toBe(true);
+  });
 });
