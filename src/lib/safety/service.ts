@@ -13,6 +13,7 @@ import { MessageScamAnalyzer } from './analyzers/message-scam-analyzer';
 import { CodeSecurityAnalyzer } from './analyzers/code-security-analyzer';
 import { RiskEngine } from './risk-engine';
 import { redactSensitiveText, redactDataRecord } from './redaction';
+import { reputationRegistry, ReputationAggregator } from './reputation';
 
 // Initialize and register default specialized analyzers
 const defaultUrlAnalyzer = new UrlAnalyzer();
@@ -67,6 +68,44 @@ export class SafetyService {
           error: err instanceof Error ? err.message : 'Unknown analyzer failure',
           limitations: [`Analyzer ${analyzer.id} failed during execution.`],
         });
+      }
+    }
+
+    // 3.1. Live URL Reputation Intelligence (Phase 4.8B)
+    const activeProviders = reputationRegistry.getActive();
+    if (activeProviders.length > 0) {
+      let targetUrl: string | null = null;
+      if (normalizedInput.type === 'url') {
+        targetUrl = normalizedInput.rawContent.trim();
+      } else {
+        const urlMatch = normalizedInput.rawContent.match(/https?:\/\/[^\s<>"]+/i);
+        if (urlMatch) {
+          targetUrl = urlMatch[0];
+        }
+      }
+
+      if (targetUrl) {
+        try {
+          const repResult = await ReputationAggregator.lookupAndAggregate(
+            targetUrl,
+            activeProviders
+          );
+
+          allFindings.push(...repResult.findings);
+          allEvidence.push(...repResult.evidence);
+
+          analyzerResults.push({
+            analyzerId: 'reputation-aggregator',
+            analyzerType: 'url',
+            status: repResult.aggregateStatus === 'unavailable' ? 'partial' : 'success',
+            confidence: repResult.confidence,
+            findings: repResult.findings,
+            evidence: repResult.evidence,
+            limitations: repResult.limitations,
+          });
+        } catch {
+          // Provider failures are non-fatal to Safety Checkup
+        }
       }
     }
 

@@ -5,9 +5,16 @@
  */
 
 import { ReputationProvider } from './types';
+import { urlhausProvider } from './urlhaus';
 
 export class ReputationProviderRegistry {
   private providers = new Map<string, ReputationProvider>();
+
+  constructor(initialProviders?: ReputationProvider[]) {
+    if (initialProviders) {
+      initialProviders.forEach(p => this.register(p));
+    }
+  }
 
   /**
    * Registers a reputation provider.
@@ -53,7 +60,15 @@ export class ReputationProviderRegistry {
   clear(): void {
     this.providers.clear();
   }
+
+  /**
+   * Resets default providers (e.g. after clear() in tests).
+   */
+  resetDefaults(): void {
+    this.clear();
+    this.register(urlhausProvider);
+  }
 }
 
 // Global default singleton registry
-export const reputationRegistry = new ReputationProviderRegistry();
+export const reputationRegistry = new ReputationProviderRegistry([urlhausProvider]);

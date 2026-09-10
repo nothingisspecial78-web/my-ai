@@ -159,7 +159,9 @@ export abstract class BaseReputationProvider implements ReputationProvider {
         response.detectionStatus,
         response.confidence,
         response.threatCategories,
-        response.description || `Reputation verdict from ${this.name}: ${response.detectionStatus}`
+        response.description || `Reputation verdict from ${this.name}: ${response.detectionStatus}`,
+        response.rawDetails,
+        response.snippet
       );
 
       const result: ProviderReputationResult = {
@@ -203,6 +205,8 @@ export abstract class BaseReputationProvider implements ReputationProvider {
         errorCode = 'network_error';
       } else if (errObj.code === 'invalid_response') {
         errorCode = 'invalid_response';
+      } else if (errObj.code === 'provider_unavailable') {
+        errorCode = 'provider_unavailable';
       }
 
       const errorResult: ProviderReputationResult = {
@@ -242,21 +246,24 @@ export abstract class BaseReputationProvider implements ReputationProvider {
     detectionStatus: ReputationDetectionStatus,
     confidence: ConfidenceLevel,
     threatCategories?: ReputationThreatCategory[],
-    customDescription?: string
+    customDescription?: string,
+    rawDetails?: Record<string, unknown>,
+    customSnippet?: string
   ): Evidence {
     return {
       id: crypto.randomUUID(),
       sourceType: 'reputation_provider',
       sourceName: this.name,
-      label: `${this.name} Reputation Result`,
+      label: `${this.name} Threat Intelligence`,
       description: customDescription || `${this.name} rated URL as ${detectionStatus} (confidence: ${confidence})`,
-      snippet: `URL: ${url} | Detection: ${detectionStatus}`,
+      snippet: customSnippet || `URL: ${url} | Detection: ${detectionStatus}`,
       data: {
         providerId: this.id,
         providerName: this.name,
         detectionStatus,
         confidence,
         threatCategories: threatCategories || [],
+        ...(rawDetails ? { details: rawDetails } : {}),
       },
       isAiGenerated: false,
       createdAt: new Date().toISOString(),
@@ -275,6 +282,7 @@ export abstract class BaseReputationProvider implements ReputationProvider {
     threatCategories?: ReputationThreatCategory[];
     rawDetails?: Record<string, unknown>;
     description?: string;
+    snippet?: string;
   }>;
 }
 

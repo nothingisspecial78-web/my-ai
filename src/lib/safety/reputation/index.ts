@@ -9,3 +9,4 @@ export * from './cache';
 export * from './provider';
 export * from './aggregator';
 export * from './registry';
+export * from './urlhaus';

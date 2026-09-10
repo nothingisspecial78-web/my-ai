@@ -8,6 +8,7 @@ import {
   AlertOctagon, 
   CheckCircle2, 
   Info,
+  Globe,
   ChevronDown,
   ChevronUp
 } from 'lucide-react';
@@ -24,7 +25,7 @@ export function SafetyAnalysisCard({ report, className }: SafetyAnalysisCardProp
 
   if (!report) return null;
 
-  const { riskLevel, confidenceLevel, score, findings, recommendations, limitations, summary } = report;
+  const { riskLevel, confidenceLevel, score, findings, recommendations, limitations, summary, evidence = [] } = report;
 
   const getRiskConfig = (level: RiskLevel) => {
     switch (level) {
@@ -153,6 +154,38 @@ export function SafetyAnalysisCard({ report, className }: SafetyAnalysisCardProp
               </p>
             )}
           </div>
+
+          {/* External Threat Intelligence Evidence */}
+          {(() => {
+            const repEvidence = (evidence || []).filter(e => e.sourceType === 'reputation_provider');
+            if (repEvidence.length === 0) return null;
+            return (
+              <div>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
+                  <Globe className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+                  Reputation Telemetry ({repEvidence.length})
+                </h4>
+                <ul className="space-y-1.5 list-none pl-0">
+                  {repEvidence.map((ev, i) => (
+                    <li
+                      key={i}
+                      className="rounded-lg border border-border/60 bg-muted/40 p-2.5 text-xs flex flex-col gap-1"
+                    >
+                      <div className="flex items-center justify-between font-semibold text-foreground">
+                        <span>{ev.label || ev.sourceName}</span>
+                      </div>
+                      <p className="text-muted-foreground leading-normal">{ev.description}</p>
+                      {ev.snippet && (
+                        <span className="font-mono text-[10px] text-muted-foreground/80 bg-background/80 px-2 py-1 rounded border border-border/40">
+                          {ev.snippet}
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })()}
 
           {/* Recommended Actions */}
           {recommendations.length > 0 && (
