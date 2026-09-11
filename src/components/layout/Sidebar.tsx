@@ -4,7 +4,6 @@ import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { 
-  MessageSquare, 
   Settings, 
   LogOut, 
   Menu,
@@ -13,7 +12,15 @@ import {
   Plus,
   Search,
   Loader2,
-  X
+  X,
+  Globe,
+  Calculator,
+  Code,
+  ShieldCheck,
+  ShieldAlert,
+  BookOpen,
+  Sparkles,
+  type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
@@ -21,8 +28,69 @@ import { SettingsModal } from '@/components/settings/SettingsModal';
 import { Database } from '@/types/database';
 import { groupConversations } from '@/lib/utilities/date';
 import { getPaginatedConversations, updateConversation, deleteConversation, searchConversations } from '@/lib/database';
+import { resolveThemeSync } from '@/lib/theme/catalog';
 
 type Conversation = Database['public']['Tables']['conversations']['Row'];
+
+const THEME_ICONS: Record<string, LucideIcon> = {
+  Globe,
+  Calculator,
+  Code,
+  ShieldCheck,
+  ShieldAlert,
+  BookOpen,
+  Sparkles,
+};
+
+function ConversationThemeIndicator({
+  themeId,
+  isActive
+}: {
+  themeId: string | null | undefined;
+  isActive: boolean;
+}) {
+  const theme = resolveThemeSync(themeId);
+  const iconKey = theme.visual?.iconName || theme.icon || 'Globe';
+  const IconComponent = THEME_ICONS[iconKey] || Globe;
+
+  return (
+    <span
+      data-testid="sidebar-theme-indicator"
+      data-theme={theme.slug}
+      data-theme-name={theme.name}
+      className={cn(
+        "flex items-center gap-1.5 text-[11px] leading-tight select-none",
+        isActive
+          ? "text-gray-600 dark:text-gray-400"
+          : "text-gray-400 dark:text-gray-500"
+      )}
+    >
+      <span className="shrink-0 flex items-center justify-center text-theme-accent" aria-hidden="true">
+        <IconComponent size={12} strokeWidth={2} />
+      </span>
+      <span className="truncate">{theme.name}</span>
+    </span>
+  );
+}
+
+function ThemeIconForId({
+  themeId,
+  size = 14,
+  className
+}: {
+  themeId: string | null | undefined;
+  size?: number;
+  className?: string;
+}) {
+  const theme = resolveThemeSync(themeId);
+  const iconKey = theme.visual?.iconName || theme.icon || 'Globe';
+  const IconComponent = THEME_ICONS[iconKey] || Globe;
+  return (
+    <span data-theme={theme.slug} className="shrink-0 inline-flex items-center justify-center text-theme-accent" aria-hidden="true">
+      <IconComponent size={size} className={className} />
+    </span>
+  );
+}
 
 export function Sidebar({ initialConversations = [], initialCursor = null }: { initialConversations?: Conversation[], initialCursor?: string | null }) {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -231,11 +299,14 @@ export function Sidebar({ initialConversations = [], initialCursor = null }: { i
                     key={chat.id}
                     href={`/chat/${chat.id}`}
                     className={cn(
-                      "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-200/50 dark:hover:bg-gray-800/50 transition-colors pr-10 focus:outline-none",
-                      pathname === `/chat/${chat.id}` && "bg-gray-200/80 dark:bg-gray-800 font-medium text-gray-900 dark:text-white shadow-sm"
+                      "flex w-full flex-col gap-0.5 rounded-lg px-3 py-2 transition-colors pr-10 focus:outline-none",
+                      pathname === `/chat/${chat.id}`
+                        ? "bg-gray-200/80 dark:bg-gray-800 font-medium text-gray-900 dark:text-white shadow-sm"
+                        : "text-gray-700 dark:text-gray-300 hover:bg-gray-200/50 dark:hover:bg-gray-800/50"
                     )}
                   >
-                    <span className="truncate">{chat.title}</span>
+                    <span className="truncate text-sm leading-snug">{chat.title}</span>
+                    <ConversationThemeIndicator themeId={chat.theme_id} isActive={pathname === `/chat/${chat.id}`} />
                   </Link>
                 ))}
               </>
@@ -256,7 +327,7 @@ export function Sidebar({ initialConversations = [], initialCursor = null }: { i
                     <div key={chat.id} className="group relative">
                       {editingId === chat.id ? (
                         <div className="flex w-full items-center gap-2 rounded-lg px-3 py-2 bg-white dark:bg-gray-900 border border-blue-500 shadow-sm">
-                          <MessageSquare size={14} className="shrink-0 text-gray-400" />
+                          <ThemeIconForId themeId={chat.theme_id} size={14} className="shrink-0 text-gray-400" />
                           <input 
                             autoFocus
                             className="flex-1 bg-transparent text-sm text-gray-900 dark:text-white focus:outline-none min-w-0"
@@ -281,11 +352,14 @@ export function Sidebar({ initialConversations = [], initialCursor = null }: { i
                         <Link
                           href={`/chat/${chat.id}`}
                           className={cn(
-                            "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-200/50 dark:hover:bg-gray-800/50 transition-colors pr-10 focus:outline-none",
-                            pathname === `/chat/${chat.id}` && "bg-gray-200/80 dark:bg-gray-800 font-medium text-gray-900 dark:text-white shadow-sm"
+                            "flex w-full flex-col gap-0.5 rounded-lg px-3 py-2 transition-colors pr-10 focus:outline-none",
+                            pathname === `/chat/${chat.id}`
+                              ? "bg-gray-200/80 dark:bg-gray-800 font-medium text-gray-900 dark:text-white shadow-sm"
+                              : "text-gray-700 dark:text-gray-300 hover:bg-gray-200/50 dark:hover:bg-gray-800/50"
                           )}
                         >
-                          <span className="truncate">{chat.title}</span>
+                          <span className="truncate text-sm leading-snug">{chat.title}</span>
+                          <ConversationThemeIndicator themeId={chat.theme_id} isActive={pathname === `/chat/${chat.id}`} />
                         </Link>
                       )}
                       

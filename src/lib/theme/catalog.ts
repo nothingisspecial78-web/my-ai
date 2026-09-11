@@ -287,3 +287,16 @@ export const CANONICAL_THEME_MAP: Record<string, ThemeDefinition> = {
   [TIBB_AL_NABI_THEME.slug]: TIBB_AL_NABI_THEME,
   [TIBB_AL_NABI_THEME.id]: TIBB_AL_NABI_THEME,
 };
+
+/**
+ * Synchronously resolves a conversation's theme_id or slug to its canonical ThemeDefinition.
+ * Fast, non-blocking in-memory catalog lookup for UI lists and sidebars.
+ * Avoids per-row database queries (prevents N+1 query patterns).
+ * Canonical General AI (null or undefined) and unknown IDs safely resolve to GENERAL_AI_THEME.
+ */
+export function resolveThemeSync(themeId: string | null | undefined): ThemeDefinition {
+  if (!themeId) {
+    return GENERAL_AI_THEME;
+  }
+  return CANONICAL_THEME_MAP[themeId] || GENERAL_AI_THEME;
+}

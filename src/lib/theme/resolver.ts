@@ -3,6 +3,8 @@ import { ThemeDefinition, ThemeConfig, parseTheme } from '@/lib/theme/types';
 import { GENERAL_AI_THEME } from '@/lib/theme/catalog';
 import { themeRegistry } from '@/lib/theme/registry';
 
+export { resolveThemeSync } from './catalog';
+
 export async function resolveAuthorizedTheme(themeId: string | null | undefined): Promise<ThemeDefinition> {
   // 1. Canonical General AI baseline: theme_id is null or undefined.
   // Legacy 'general' slug and legacy UUID ('11111111-1111-1111-1111-111111111111') are accepted purely as fallback.
