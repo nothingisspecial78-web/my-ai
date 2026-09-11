@@ -124,7 +124,7 @@ export async function POST(req: NextRequest) {
         const engineResult = await processThemeRequest(theme, input, messagesToUse as unknown as Message[]);
         
         if (engineResult) {
-          const contextAddition = `--- System Deterministic Context ---\n${engineResult.explanationContext}`;
+          const contextAddition = engineResult.explanationContext;
           systemInstruction = systemInstruction 
             ? `${systemInstruction}\n\n${contextAddition}`
             : contextAddition;

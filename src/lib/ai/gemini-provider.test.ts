@@ -323,4 +323,95 @@ describe('GeminiProvider', () => {
       })
     );
   });
+
+  it('17. Defensively sanitizes any accidental prompt header or system context leakage in streaming chunks', async () => {
+    mockGenerateContentStream.mockReturnValueOnce((async function* () {
+      yield { text: '--- System Deterministic Context ---\n' };
+      yield { text: '=== SAFETY & SECURITY DETERMINISTIC ANALYSIS ===\n' };
+      yield { text: 'This message was analyzed. Do not share your recovery phrase.' };
+    })());
+
+    const messages = [{ id: '1', role: 'user', content: 'Safety question', metadata: {} }] as unknown as Message[];
+    const generator = provider.generateStream(messages);
+
+    let result = '';
+    for await (const event of generator) {
+      if (event.type === 'chunk') result += (event as { text: string }).text;
+    }
+
+    expect(result).not.toContain('--- System Deterministic Context ---');
+    expect(result).not.toContain('=== SAFETY & SECURITY DETERMINISTIC ANALYSIS ===');
+    expect(result).toBe('This message was analyzed. Do not share your recovery phrase.');
+  });
+
+  it('18. Strips [Instructions for Assistant] and [Safety Analysis Guidance Context] from stream', async () => {
+    mockGenerateContentStream.mockReturnValueOnce((async function* () {
+      yield { text: '[Safety Analysis Guidance Context]\n' };
+      yield { text: '[Instructions for Assistant]\n' };
+      yield { text: 'Based on our security checks, this link is high risk.' };
+    })());
+
+    const messages = [{ id: '1', role: 'user', content: 'Safety check', metadata: {} }] as unknown as Message[];
+    const generator = provider.generateStream(messages);
+
+    let result = '';
+    for await (const event of generator) {
+      if (event.type === 'chunk') result += (event as { text: string }).text;
+    }
+
+    expect(result).not.toContain('[Safety Analysis Guidance Context]');
+    expect(result).not.toContain('[Instructions for Assistant]');
+    expect(result).toBe('Based on our security checks, this link is high risk.');
+  });
+
+  it('19. Does NOT strip normal text containing "Instructions for Assistant:"', async () => {
+    mockGenerateContentStream.mockReturnValueOnce((async function* () {
+      yield { text: 'Here are Instructions for Assistant teachers: 1. Greet the students.' };
+    })());
+
+    const messages = [{ id: '1', role: 'user', content: 'Help with teaching', metadata: {} }] as unknown as Message[];
+    const generator = provider.generateStream(messages);
+
+    let result = '';
+    for await (const event of generator) {
+      if (event.type === 'chunk') result += (event as { text: string }).text;
+    }
+
+    expect(result).toBe('Here are Instructions for Assistant teachers: 1. Greet the students.');
+  });
+
+  it('20. Preserves short responses without newlines', async () => {
+    mockGenerateContentStream.mockReturnValueOnce((async function* () {
+      yield { text: 'Yes.' };
+    })());
+
+    const messages = [{ id: '1', role: 'user', content: 'Is it true?', metadata: {} }] as unknown as Message[];
+    const generator = provider.generateStream(messages);
+
+    let result = '';
+    for await (const event of generator) {
+      if (event.type === 'chunk') result += (event as { text: string }).text;
+    }
+
+    expect(result).toBe('Yes.');
+  });
+
+  it('21. Strips header split across multiple chunks', async () => {
+    mockGenerateContentStream.mockReturnValueOnce((async function* () {
+      yield { text: '[Safety Analysis' };
+      yield { text: ' Guidance Context]\n' };
+      yield { text: 'Clean assessment result.' };
+    })());
+
+    const messages = [{ id: '1', role: 'user', content: 'Inspect', metadata: {} }] as unknown as Message[];
+    const generator = provider.generateStream(messages);
+
+    let result = '';
+    for await (const event of generator) {
+      if (event.type === 'chunk') result += (event as { text: string }).text;
+    }
+
+    expect(result).not.toContain('[Safety Analysis Guidance Context]');
+    expect(result).toBe('Clean assessment result.');
+  });
 });

@@ -57,6 +57,21 @@ export class MessageScamAnalyzer implements SafetyAnalyzer {
     /\b(do not tell anyone|keep this confidential|between you and me|secret assignment|don't tell your family)\b/i,
   ];
 
+  private static RECOVERY_PHRASE_TERMS =
+    /\b(secret recovery phrase|recovery phrase|seed phrase|seed words|recovery words|wallet recovery phrase|backup phrase|mnemonic phrase|mnemonic words|private key)\b/i;
+
+  private static RECOVERY_SOLICITATION_OR_ACTION =
+    /\b(share|send|give|provide|tell|enter|input|submit|verify|unlock|validate|disclose|export|import|restore|backup|confirm|claim|type|paste|ask|asked|asking|request|requested|requesting|demand|demanded|wants?|needs?)\b/i;
+
+  private static RECOVERY_CONTEXT_OR_INQUIRY =
+    /\b(support|helpdesk|admin|agent|staff|team|representative|telegram|discord|dm|email|form|site|portal|airdrop|claim|giveaway|bonus|bot|anyone|somebody|someone|is it safe|can i|should i|is it okay|they (?:want|need|asked)|asked me|asking for|requested my|share my|send my|give them)\b/i;
+
+  private static DEFENSIVE_PHRASE_PATTERNS =
+    /\b(never (?:share|give|send|enter|provide|disclose|tell|ask)|(?:do not|don't) (?:share|give|send|enter|provide|disclose|tell)|will never ask|won't ask|never asked|store (?:it |your |them )?offline|keep (?:it |your |them )?safe)\b/i;
+
+  private static ACTIVE_INQUIRY_OR_REPORT =
+    /\b(is it safe|can i|should i|is it okay|asked me|asking me|wants me|demands|insists)\b/i;
+
   private urlAnalyzer = new UrlAnalyzer();
 
   canAnalyze(input: SafetyInput): boolean {
@@ -122,6 +137,33 @@ export class MessageScamAnalyzer implements SafetyAnalyzer {
         evidenceIds: [evidenceId],
         confidence: 'high',
       });
+    }
+
+    // 2b. Recovery Phrase / Private Key Solicitation Detection
+    if (MessageScamAnalyzer.RECOVERY_PHRASE_TERMS.test(rawText)) {
+      const isDefensive = MessageScamAnalyzer.DEFENSIVE_PHRASE_PATTERNS.test(rawText);
+      const isUserInquiringOrReporting = MessageScamAnalyzer.ACTIVE_INQUIRY_OR_REPORT.test(rawText);
+
+      // Distinguish defensive/educational notices from actual solicitation or inquiries
+      if (isDefensive && !isUserInquiringOrReporting) {
+        // Benign defensive or educational statement - do not flag
+      } else {
+        const hasDirectAction = /\b(enter|input|submit|share|send|provide|disclose)\s+(?:(?:your|the|a|my)\s+)?(?:secret\s+)?(?:recovery\s+phrase|seed\s+phrase|private\s+key|seed\s+words|recovery\s+words)\b/i.test(rawText);
+        const hasAction = MessageScamAnalyzer.RECOVERY_SOLICITATION_OR_ACTION.test(rawText);
+        const hasContext = MessageScamAnalyzer.RECOVERY_CONTEXT_OR_INQUIRY.test(rawText);
+
+        if (hasDirectAction || (hasAction && hasContext)) {
+          findings.push({
+            id: crypto.randomUUID(),
+            type: 'recovery_phrase_request',
+            severity: 'high',
+            title: 'Recovery Phrase or Private Key Solicitation',
+            description: 'The communication involves requesting, providing, or entering a cryptocurrency recovery phrase, seed phrase, or private key. Legitimate platforms and support representatives never ask for these.',
+            evidenceIds: [evidenceId],
+            confidence: 'high',
+          });
+        }
+      }
     }
 
     // 3. Artificial Urgency

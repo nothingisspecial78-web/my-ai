@@ -107,7 +107,7 @@ export class RiskEngine {
       (highCount >= 1 && (mediumCount >= 1 || lowCount >= 2)) ||
       (mediumCount >= 2 && score >= 25);
 
-    if (hasCriticalSeverity || (highCount >= 2 && score >= 75 && findings.some(f => f.type === 'otp_request' || f.type === 'credential_request') && findings.some(f => f.type === 'lookalike_brand' || f.type === 'host_confusion'))) {
+    if (hasCriticalSeverity || (highCount >= 2 && score >= 75 && findings.some(f => f.type === 'otp_request' || f.type === 'credential_request' || f.type === 'recovery_phrase_request') && findings.some(f => f.type === 'lookalike_brand' || f.type === 'host_confusion'))) {
       riskLevel = 'critical';
     } else if (hasPhishingCombo || highCount >= 1) {
       riskLevel = 'high';
@@ -171,6 +171,15 @@ export class RiskEngine {
           action: 'do_not_enter_password',
           title: 'Do Not Enter Login Credentials',
           description: 'Do not input your password or account details on this page or message.',
+          priority: 'high',
+        });
+      }
+
+      if (f.type === 'recovery_phrase_request') {
+        addRec({
+          action: 'never_share_recovery_phrase',
+          title: 'Never Share Recovery or Seed Phrases',
+          description: 'Legitimate support, services, or administrators will never ask for your recovery phrase or private key. Disclosing it grants irreversible control over your assets.',
           priority: 'high',
         });
       }

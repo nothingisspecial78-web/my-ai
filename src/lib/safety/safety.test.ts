@@ -448,9 +448,121 @@ describe('Phase 4.7: Safety Checkup MVP Test Suite', () => {
     });
 
     const geminiContext = SafetyService.formatForGemini(report);
-    expect(geminiContext).toContain('=== SAFETY & SECURITY DETERMINISTIC ANALYSIS ===');
+    expect(geminiContext).toContain('[Safety Analysis Guidance Context]');
+    expect(geminiContext).toContain('[Instructions for Assistant]');
     expect(geminiContext).toContain('Assessed Risk Level:');
     expect(geminiContext).toContain('Actionable Recommendations:');
-    expect(geminiContext).toContain('Do NOT invent external security vendor results');
+    expect(geminiContext).toContain('ABSOLUTE SAFETY PROHIBITION: Never declare any URL, domain, message, or file as "100% safe"');
+    expect(geminiContext).toContain('NO PLACEHOLDER CLAIMS');
+    expect(geminiContext).toContain('ZERO SYSTEM LEAKAGE');
+    expect(geminiContext).not.toContain('=== SAFETY & SECURITY DETERMINISTIC ANALYSIS ===');
+  });
+
+  // =========================================================================
+  // SAFETY RESPONSE QUALITY: RECOVERY / SEED PHRASE TESTS
+  // =========================================================================
+
+  describe('Safety Response Quality: Recovery / Seed Phrase Detection', () => {
+    it('1. Flags recovery phrase inquiry with support as HIGH risk', async () => {
+      const report = await SafetyService.analyze({
+        rawContent: 'Is it safe to share my recovery phrase with support if they ask?',
+      });
+
+      expect(report.inputType).toBe('message');
+      expect(report.riskLevel).toBe('high');
+      expect(report.confidenceLevel).toBe('high');
+      const finding = report.findings.find(f => f.type === 'recovery_phrase_request');
+      expect(finding).toBeDefined();
+      expect(finding?.severity).toBe('high');
+      expect(report.recommendations.some(r => r.action === 'never_share_recovery_phrase')).toBe(true);
+    });
+
+    it('2. Flags third-party seed phrase solicitation as HIGH risk', async () => {
+      const report = await SafetyService.analyze({
+        rawContent: 'Support asked for my 12 word seed phrase',
+      });
+
+      expect(report.riskLevel).toBe('high');
+      const finding = report.findings.find(f => f.type === 'recovery_phrase_request');
+      expect(finding).toBeDefined();
+      expect(finding?.severity).toBe('high');
+      expect(report.recommendations.some(r => r.action === 'never_share_recovery_phrase')).toBe(true);
+    });
+
+    it('3. Does NOT flag defensive user statement "Never share your recovery phrase with anyone"', async () => {
+      const report = await SafetyService.analyze({
+        rawContent: 'Never share your recovery phrase with anyone',
+      });
+
+      expect(report.riskLevel).toBe('low');
+      const finding = report.findings.find(f => f.type === 'recovery_phrase_request');
+      expect(finding).toBeUndefined();
+    });
+
+    it('4. Does NOT flag educational question "What is a recovery phrase and how does it work?"', async () => {
+      const report = await SafetyService.analyze({
+        rawContent: 'What is a recovery phrase and how does it work?',
+      });
+
+      expect(report.riskLevel).toBe('low');
+      const finding = report.findings.find(f => f.type === 'recovery_phrase_request');
+      expect(finding).toBeUndefined();
+    });
+
+    it('5. Does NOT flag legitimate security warning "Security alert: We will never ask for your recovery phrase"', async () => {
+      const report = await SafetyService.analyze({
+        rawContent: 'Security alert: We will never ask for your recovery phrase',
+      });
+
+      expect(report.riskLevel).toBe('low');
+      const finding = report.findings.find(f => f.type === 'recovery_phrase_request');
+      expect(finding).toBeUndefined();
+    });
+
+    it('6. Flags private key solicitation "Send your private key to claim airdrop" as HIGH risk', async () => {
+      const report = await SafetyService.analyze({
+        rawContent: 'Send your private key to claim airdrop',
+      });
+
+      expect(report.riskLevel).toBe('high');
+      const finding = report.findings.find(f => f.type === 'recovery_phrase_request');
+      expect(finding).toBeDefined();
+      expect(finding?.severity).toBe('high');
+      expect(report.recommendations.some(r => r.action === 'never_share_recovery_phrase')).toBe(true);
+    });
+
+    it('7. Ordinary credential request remains HIGH risk credential_request', async () => {
+      const report = await SafetyService.analyze({
+        rawContent: 'Enter your password to verify your account',
+      });
+
+      expect(report.riskLevel).toBe('high');
+      const finding = report.findings.find(f => f.type === 'credential_request');
+      expect(finding).toBeDefined();
+      expect(report.recommendations.some(r => r.action === 'do_not_enter_password')).toBe(true);
+    });
+
+    it('8. PayPal phishing URL remains HIGH risk', async () => {
+      const report = await SafetyService.analyze({
+        rawContent: 'http://paypal.com.account-update.temporary-banking-portal.xyz/login',
+      });
+
+      expect(report.inputType).toBe('url');
+      expect(report.riskLevel).toBe('high');
+      expect(report.findings.some(f => f.type === 'lookalike_brand' || f.type === 'suspicious_domain')).toBe(true);
+      expect(report.findings.some(f => f.type === 'insecure_protocol')).toBe(true);
+    });
+
+    it('9. Redacts raw crypto private keys and seed phrase literals', () => {
+      const rawHexKey = 'My private key is 0x4f3edf983ac636a65a842ce7c78d9aa706d3b113bce9c46f30d7d21715b23b1d and do not share';
+      const sanitized = redactSensitiveText(rawHexKey);
+      expect(sanitized).not.toContain('0x4f3edf983ac636a65a842ce7c78d9aa706d3b113bce9c46f30d7d21715b23b1d');
+      expect(sanitized).toContain('[REDACTED_KEY]');
+
+      const rawSeed = 'seed phrase: apple banana orange grape kiwi melon lemon lime berry peach plum cherry';
+      const sanitizedSeed = redactSensitiveText(rawSeed);
+      expect(sanitizedSeed).not.toContain('apple banana orange');
+      expect(sanitizedSeed).toContain('[REDACTED]');
+    });
   });
 });

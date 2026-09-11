@@ -3,6 +3,14 @@ import { GoogleGenAI } from '@google/genai';
 import { SYSTEM_INSTRUCTION } from './system-prompt';
 import { getEnv } from '@/lib/env';
 
+function sanitizePromptLeakage(text: string): string {
+  return text
+    .replace(/--- System Deterministic Context ---\s*/gi, '')
+    .replace(/===\s*SAFETY & SECURITY DETERMINISTIC ANALYSIS\s*===\s*/gi, '')
+    .replace(/\[Safety Analysis Guidance Context\]\s*/gi, '')
+    .replace(/\[Instructions for Assistant\]\s*/gi, '');
+}
+
 export class GeminiProvider implements AIProvider {
   name = 'gemini';
   private client: GoogleGenAI;
@@ -215,6 +223,9 @@ export class GeminiProvider implements AIProvider {
 
       let inputTokens = undefined;
       let outputTokens = undefined;
+      let initialBuffer = '';
+      let initialFlushed = false;
+      const BUFFER_THRESHOLD = 80;
 
       for await (const chunk of responseStream) {
         if (options?.signal?.aborted) {
@@ -222,7 +233,22 @@ export class GeminiProvider implements AIProvider {
         }
 
         if (chunk.text) {
-          yield { type: 'chunk', text: chunk.text };
+          if (!initialFlushed) {
+            initialBuffer += chunk.text;
+            if (initialBuffer.length >= BUFFER_THRESHOLD || initialBuffer.includes('\n')) {
+              const cleaned = sanitizePromptLeakage(initialBuffer);
+              if (cleaned) {
+                yield { type: 'chunk', text: cleaned };
+              }
+              initialFlushed = true;
+              initialBuffer = '';
+            }
+          } else {
+            const cleaned = sanitizePromptLeakage(chunk.text);
+            if (cleaned) {
+              yield { type: 'chunk', text: cleaned };
+            }
+          }
         }
 
         // Keep usage metadata if provided
@@ -230,6 +256,15 @@ export class GeminiProvider implements AIProvider {
           inputTokens = chunk.usageMetadata.promptTokenCount;
           outputTokens = chunk.usageMetadata.candidatesTokenCount;
         }
+      }
+
+      // Flush remaining initial buffer if stream ended before threshold or newline
+      if (!initialFlushed && initialBuffer) {
+        const cleaned = sanitizePromptLeakage(initialBuffer);
+        if (cleaned) {
+          yield { type: 'chunk', text: cleaned };
+        }
+        initialBuffer = '';
       }
 
       yield {

@@ -116,6 +116,15 @@ export function redactSensitiveText(text: string): string {
   // 5. Redact potential 16-digit credit card numbers
   sanitized = sanitized.replace(/\b(?:\d{4}[-\s]?){3}\d{4}\b/g, '[REDACTED]');
 
+  // 6. Redact potential 64-character hexadecimal private keys
+  sanitized = sanitized.replace(/\b(?:0x)?[0-9a-fA-F]{64}\b/g, '[REDACTED_KEY]');
+
+  // 7. Redact seed phrases / recovery phrases following labels
+  sanitized = sanitized.replace(
+    /\b((?:secret\s+)?(?:recovery|seed)\s+phrase|private\s+key)\s*[:=is-]+\s*([a-zA-Z0-9_\s]{10,})/gi,
+    '$1: [REDACTED]'
+  );
+
   return sanitized;
 }
 
