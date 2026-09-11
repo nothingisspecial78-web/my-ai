@@ -7,7 +7,7 @@ import { WelcomeScreen } from '@/components/chat/WelcomeScreen';
 import { ThemeSelector } from '@/components/chat/ThemeSelector';
 import { useChatPreferences } from '@/hooks/use-chat-preferences';
 import { extractConversationTitle } from '@/lib/utilities/title';
-import { CANONICAL_THEME_MAP } from '@/lib/theme/catalog';
+import { CANONICAL_THEME_MAP, GENERAL_AI_THEME } from '@/lib/theme/catalog';
 
 export default function ChatEmptyPage() {
   const router = useRouter();
@@ -15,7 +15,7 @@ export default function ChatEmptyPage() {
   const [selectedThemeId, setSelectedThemeId] = useState<string | null>(null);
   const { preferences } = useChatPreferences();
 
-  const activeThemeSlug = (selectedThemeId && CANONICAL_THEME_MAP[selectedThemeId]?.slug) || 'general';
+  const activeTheme = (selectedThemeId && CANONICAL_THEME_MAP[selectedThemeId]) || GENERAL_AI_THEME;
 
   const handleSend = async (text: string) => {
     if (isNavigating) return;
@@ -44,9 +44,9 @@ export default function ChatEmptyPage() {
   };
 
   return (
-    <div data-theme={activeThemeSlug} className="flex h-full w-full flex-col relative bg-[var(--theme-bg)] transition-colors">
+    <div data-theme={activeTheme.slug} className="flex h-full w-full flex-col relative bg-[var(--theme-bg)] transition-colors">
       <div className="flex-1 overflow-y-auto w-full">
-        <WelcomeScreen onSuggestionClick={handleSend} disabled={isNavigating} />
+        <WelcomeScreen onSuggestionClick={handleSend} disabled={isNavigating} theme={activeTheme} />
       </div>
 
       <div className="mt-auto w-full bg-gradient-to-t from-[var(--theme-bg)] via-[var(--theme-bg)] to-transparent">

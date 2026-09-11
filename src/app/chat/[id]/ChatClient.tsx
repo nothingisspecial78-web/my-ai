@@ -432,7 +432,7 @@ export function ChatClient({ conversation, initialMessages, theme }: ChatClientP
 
       <div className="flex-1 overflow-y-auto w-full">
         {messages.length === 0 ? (
-          <WelcomeScreen onSuggestionClick={handleSend} disabled={isSending} />
+          <WelcomeScreen onSuggestionClick={handleSend} disabled={isSending} theme={theme} />
         ) : (
           <div className="flex flex-col pb-6 w-full max-w-4xl mx-auto">
             {messages.map((msg, idx) => (

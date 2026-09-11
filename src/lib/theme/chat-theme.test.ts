@@ -56,9 +56,8 @@ describe('Phase 5.3: Chat UI Theme Integration & Token Scoping', () => {
     const pagePath = path.resolve(process.cwd(), 'src/app/chat/page.tsx');
     const content = fs.readFileSync(pagePath, 'utf-8');
 
-    expect(content).toContain("import { CANONICAL_THEME_MAP } from '@/lib/theme/catalog';");
-    expect(content).toContain("activeThemeSlug = (selectedThemeId && CANONICAL_THEME_MAP[selectedThemeId]?.slug) || 'general'");
-    expect(content).toContain('data-theme={activeThemeSlug}');
+    expect(content).toContain('CANONICAL_THEME_MAP');
+    expect(content).toContain('data-theme={activeTheme.slug}');
     expect(content).toContain('bg-[var(--theme-bg)]');
     expect(content).toContain('from-[var(--theme-bg)] via-[var(--theme-bg)]');
   });
