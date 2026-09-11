@@ -352,7 +352,10 @@ async function optimizeImageForUpload(file: File): Promise<File | Blob> {
         const { timestamp, signature, apiKey, cloudName, folder } = signData;
 
         const formData = new FormData();
-        formData.append('file', file, validation.sanitizedFilename || file.name);
+        const uploadFilename = validation.type === 'pdf'
+          ? `${validation.sanitizedFilename || file.name}.dat`
+          : (validation.sanitizedFilename || file.name);
+        formData.append('file', file, uploadFilename);
         formData.append('api_key', apiKey);
         formData.append('timestamp', timestamp.toString());
         formData.append('signature', signature);
