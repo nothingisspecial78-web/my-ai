@@ -812,8 +812,41 @@ describe('Phase 4.8A — URL Reputation Intelligence Architecture', () => {
       expect(aggregate.disputed).toBe(false);
       expect(aggregate.findings.length).toBe(1);
       expect(aggregate.findings[0].type).toBe('reputation_clean');
+      expect(aggregate.findings[0].title).toBe('No Threat Matches in Available Checks');
+      expect(aggregate.findings[0].description).toBe(
+        'The available reputation checks found no matching threat listing, but some providers may return unknown when they have no record.'
+      );
+      expect(aggregate.findings[0].description).not.toContain('multiple security vendors');
+      expect(aggregate.summary).toContain('1 unflagged, 1 with no record');
       expect(aggregate.limitations.some(l => l.includes('partial coverage'))).toBe(true);
       expect(aggregate.limitations.some(l => l.includes('do not guarantee safety'))).toBe(true);
+    });
+
+    it('Scenario C2: example.com with Google clean + URLhaus unknown does not claim multiple vendors confirmed clean', async () => {
+      const urlhaus = new MockReputationProvider({
+        id: 'urlhaus',
+        name: 'URLhaus',
+        defaultResult: { detectionStatus: 'unknown', confidence: 'low' },
+        cache,
+      });
+      const safeBrowsing = new MockReputationProvider({
+        id: 'safebrowsing',
+        name: 'Google Safe Browsing',
+        defaultResult: { detectionStatus: 'clean', confidence: 'medium' },
+        cache,
+      });
+
+      const aggregate = await ReputationAggregator.lookupAndAggregate(
+        'https://example.com',
+        [urlhaus, safeBrowsing]
+      );
+
+      expect(aggregate.aggregateStatus).toBe('clean');
+      expect(aggregate.findings.length).toBe(1);
+      // Must NOT claim multiple vendors confirmed clean
+      expect(aggregate.findings[0].description).not.toContain('multiple');
+      expect(aggregate.findings[0].description).toContain('some providers may return unknown when they have no record');
+      expect(aggregate.summary).not.toContain('multiple');
     });
 
     // Scenario D: URLhaus unknown + Safe Browsing unknown => unknown

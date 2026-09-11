@@ -564,5 +564,53 @@ describe('Phase 4.7: Safety Checkup MVP Test Suite', () => {
       expect(sanitizedSeed).not.toContain('apple banana orange');
       expect(sanitizedSeed).toContain('[REDACTED]');
     });
+
+    it('10. Wikipedia Computer_security URL does not trigger suspicious keyword finding solely from topic path', async () => {
+      const report = await SafetyService.analyze({
+        rawContent: 'https://en.wikipedia.org/wiki/Computer_security',
+      });
+
+      expect(report.inputType).toBe('url');
+      expect(report.riskLevel).toBe('low');
+      const keywordFinding = report.findings.find(f => f.type === 'suspicious_keyword');
+      expect(keywordFinding).toBeUndefined();
+    });
+
+    it('11. Ordinary documentation /security paths do not receive suspicious keyword finding', async () => {
+      const docReport = await SafetyService.analyze({
+        rawContent: 'https://example.com/documentation/security',
+      });
+      expect(docReport.findings.find(f => f.type === 'suspicious_keyword')).toBeUndefined();
+
+      const secReport = await SafetyService.analyze({
+        rawContent: 'https://example.com/security',
+      });
+      expect(secReport.findings.find(f => f.type === 'suspicious_keyword')).toBeUndefined();
+    });
+
+    it('12. Genuine phishing URLs with login/account-update continue to trigger suspicious keyword and lookalike signals', async () => {
+      const report = await SafetyService.analyze({
+        rawContent: 'http://paypal.com.account-update.temporary-banking-portal.xyz/login',
+      });
+
+      expect(report.inputType).toBe('url');
+      expect(report.riskLevel).toBe('high');
+      const keywordFinding = report.findings.find(f => f.type === 'suspicious_keyword');
+      expect(keywordFinding).toBeDefined();
+      expect(keywordFinding?.metadata?.keywords).toContain('login');
+      expect(report.findings.some(f => f.type === 'lookalike_domain' || f.type === 'lookalike_brand')).toBe(true);
+    });
+
+    it('13. Gemini formatting instructions enforce strict grounding without unsupported statistical claims', async () => {
+      const report = await SafetyService.analyze({
+        rawContent: 'https://example.com/login',
+      });
+
+      const formatted = SafetyService.formatForGemini(report);
+      expect(formatted).toContain('STRICT EVIDENCE GROUNDING');
+      expect(formatted).toContain('REPUTATION FIDELITY');
+      expect(formatted).toContain('statistically common in fraudulent URLs');
+      expect(formatted).toContain('security vendors confirmed this is safe');
+    });
   });
 });

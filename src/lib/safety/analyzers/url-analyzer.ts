@@ -36,10 +36,21 @@ export class UrlAnalyzer implements SafetyAnalyzer {
     'chase', 'bankofamerica', 'wellsfargo', 'binance', 'coinbase',
   ];
 
-  // Suspicious security/login keywords in URL paths or subdomains
+  // Specific authentication / credential keywords that indicate auth actions
+  private static HIGH_RISK_AUTH_KEYWORDS = [
+    'login', 'signin', 'sign-in', 'verify', 'verification', 'account',
+    'password', 'credential', 'secure-login', 'account-update', 'recover',
+    'unlock', 'wallet'
+  ];
+
+  // Generic security, notification, or topic keywords requiring contextual reinforcement
+  private static CONTEXTUAL_KEYWORDS = [
+    'security', 'update', 'bank', 'payment', 'confirm', 'urgent', 'support'
+  ];
+
   private static SUSPICIOUS_KEYWORDS = [
-    'login', 'signin', 'sign-in', 'verify', 'verification', 'account', 'security', 'update',
-    'password', 'wallet', 'bank', 'payment', 'recover', 'unlock', 'confirm', 'urgent', 'support',
+    ...UrlAnalyzer.HIGH_RISK_AUTH_KEYWORDS,
+    ...UrlAnalyzer.CONTEXTUAL_KEYWORDS,
   ];
 
   // Common private or local network IPv4 ranges
@@ -310,14 +321,65 @@ export class UrlAnalyzer implements SafetyAnalyzer {
     }
 
     // ----------------------------------------------------
-    // G. Suspicious Keywords (login, verify, account, etc.)
+    // G. Context-Aware Suspicious Keywords (login, verify, account, etc.)
     // ----------------------------------------------------
+    const isTopicOrDocPath =
+      /^\/(?:wiki|documentation|docs|articles?|blog|news|about|help|faq|knowledge|learn|topics?|reference)\b/i.test(pathname) ||
+      /^\/(?:security|update|support|privacy)\/?$/i.test(pathname);
+
+    const matchesKeyword = (text: string, kw: string): boolean => {
+      const pattern = new RegExp(`(?:^|[._/\\-?&=])${kw}(?:[._/\\-?&=]|$)`, 'i');
+      return pattern.test(text);
+    };
+
     const matchedKeywords: string[] = [];
+
+    // 1. Check hostname tokens (always significant if present in domain/subdomains)
     for (const kw of UrlAnalyzer.SUSPICIOUS_KEYWORDS) {
-      if (pathname.includes(kw) || hostname.includes(kw)) {
+      if (matchesKeyword(hostname, kw) && !matchedKeywords.includes(kw)) {
         matchedKeywords.push(kw);
       }
     }
+
+    // 2. Check path tokens if NOT an encyclopedia or documentation topic path
+    if (!isTopicOrDocPath) {
+      const pathHighRisk: string[] = [];
+      const pathContextual: string[] = [];
+
+      for (const kw of UrlAnalyzer.HIGH_RISK_AUTH_KEYWORDS) {
+        if (matchesKeyword(pathname, kw) && !matchedKeywords.includes(kw)) {
+          pathHighRisk.push(kw);
+        }
+      }
+
+      for (const kw of UrlAnalyzer.CONTEXTUAL_KEYWORDS) {
+        if (matchesKeyword(pathname, kw) && !matchedKeywords.includes(kw)) {
+          pathContextual.push(kw);
+        }
+      }
+
+      // Actionable auth keywords in path are added
+      matchedKeywords.push(...pathHighRisk);
+
+      // Generic topic keywords (security, update, support, etc.) match only when reinforced
+      const hasOtherRiskSignal = findings.some(
+        f => f.type === 'lookalike_domain' || f.type === 'lookalike_brand' || f.type === 'ip_as_host' || f.type === 'excessive_subdomains'
+      );
+
+      if (
+        pathHighRisk.length > 0 ||
+        matchedKeywords.length > 0 ||
+        pathContextual.length >= 2 ||
+        hasOtherRiskSignal
+      ) {
+        for (const kw of pathContextual) {
+          if (!matchedKeywords.includes(kw)) {
+            matchedKeywords.push(kw);
+          }
+        }
+      }
+    }
+
     if (matchedKeywords.length > 0) {
       findings.push({
         id: crypto.randomUUID(),

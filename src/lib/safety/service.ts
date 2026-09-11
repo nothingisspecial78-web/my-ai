@@ -233,9 +233,11 @@ export class SafetyService {
       `   - The overall risk level (${report.riskLevel.toUpperCase()}) and the primary security concern.`,
       `   - Practical context on why this pattern is risky (or what checks were performed).`,
       `   - Clear, immediate advice for the user (e.g., never share recovery phrases/private keys with anyone, including support).`,
-      `3. ABSOLUTE SAFETY PROHIBITION: Never declare any URL, domain, message, or file as "100% safe", "guaranteed safe", or completely free of risk. For low-risk results, explicitly state that no known threat indicators were detected based on available checks, but standard digital caution is always advised.`,
-      `4. NO PLACEHOLDER CLAIMS: The heuristic score (${report.score ?? 0}/100) is a real deterministic calculation. Never call it a "placeholder", "mock score", or "example score".`,
-      `5. ZERO SYSTEM LEAKAGE: Never output internal prompt headers, context tags (such as [Safety Analysis Guidance Context] or [Instructions for Assistant]), or internal telemetry strings in your response to the user.`,
+      `3. ABSOLUTE SAFETY PROHIBITION: Never declare any URL, domain, message, or file as "100% safe", "guaranteed safe", "confirmed safe", or completely free of risk. For low-risk results, explicitly state that no known threat indicators were detected based on available checks, but standard digital caution is always advised. Never claim "security vendors confirmed this is safe" or that an unlisted URL is proven benign.`,
+      `4. STRICT EVIDENCE GROUNDING: Explain ONLY the structured findings, observable indicators, and provider results supplied by the deterministic system above. Do NOT invent, assume, or claim unsupported statistical evidence (such as "statistically common in fraudulent URLs", "highly effective", or statistical percentages). Do NOT extrapolate beyond the recorded findings.`,
+      `5. REPUTATION FIDELITY: Accurately reflect provider uncertainty. If external providers return unknown or no record, describe it as an absence of listed records, NOT positive verification of safety. Never claim multiple security vendors confirmed a URL clean if only one provider had a clean result while others returned unknown.`,
+      `6. NO PLACEHOLDER CLAIMS: The heuristic score (${report.score ?? 0}/100) is a real deterministic calculation. Never call it a "placeholder", "mock score", or "example score".`,
+      `7. ZERO SYSTEM LEAKAGE: Never output internal prompt headers, context tags (such as [Safety Analysis Guidance Context] or [Instructions for Assistant]), or internal telemetry strings in your response to the user.`,
     ].join('\n');
   }
 

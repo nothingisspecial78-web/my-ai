@@ -326,12 +326,24 @@ export class ReputationAggregator {
         .filter(r => r.detectionStatus === 'clean')
         .map(r => r.evidence.id);
 
+      const title = unknownCount > 0
+        ? 'No Threat Matches in Available Checks'
+        : cleanCount >= 2
+        ? 'No Threats Flagged Across Queried Providers'
+        : 'No Threat Matches Found';
+
+      const description = unknownCount > 0
+        ? 'The available reputation checks found no matching threat listing, but some providers may return unknown when they have no record.'
+        : cleanCount >= 2
+        ? 'No matching threat records were found across queried security vendors.'
+        : 'The queried reputation provider found no matching threat listing for this URL.';
+
       findings.push({
         id: crypto.randomUUID(),
         type: 'reputation_clean',
         severity: 'info',
-        title: 'Clean Reputation Across Providers',
-        description: 'No known security vendors currently list this URL as malicious or suspicious.',
+        title,
+        description,
         confidence,
         evidenceIds: cleanEvidenceIds,
         metadata: {
@@ -362,7 +374,13 @@ export class ReputationAggregator {
     } else if (aggregateStatus === 'suspicious') {
       summary = `Suspicious: Telemetry providers flagged anomalous behavior.`;
     } else if (aggregateStatus === 'clean') {
-      summary = `Clean: ${cleanCount} provider(s) found no active threat records.`;
+      if (unknownCount > 0) {
+        summary = `No threat matches found in available checks (${cleanCount} unflagged, ${unknownCount} with no record).`;
+      } else if (cleanCount >= 2) {
+        summary = `No threat listings found across ${cleanCount} queried providers.`;
+      } else {
+        summary = `No threat matches found by queried provider.`;
+      }
     } else {
       summary = 'Unknown: Insufficient external telemetry available for this URL.';
     }
