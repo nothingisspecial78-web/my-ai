@@ -71,7 +71,7 @@ const WELCOME_ICONS: Record<string, LucideIcon> = {
 
 function renderWelcomeIcon(name?: string | null, size = 18, className?: string) {
   const IconComp = (name && WELCOME_ICONS[name]) || Sparkles;
-  return <IconComp size={size} className={className} />;
+  return <IconComp size={size} className={className} aria-hidden="true" />;
 }
 
 export function WelcomeScreen({ onSuggestionClick, disabled, theme }: WelcomeScreenProps) {
@@ -90,13 +90,13 @@ export function WelcomeScreen({ onSuggestionClick, disabled, theme }: WelcomeScr
       <div className="max-w-2xl w-full text-center space-y-8 fade-in-up px-4 pb-12">
         {/* Hero */}
         <div className="space-y-4">
-          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-theme-avatar-bg text-theme-avatar-fg shadow-xl shadow-[var(--theme-glow)] mb-6 transition-colors">
+          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-theme-avatar-bg text-theme-avatar-fg shadow-xl shadow-[var(--theme-glow)] mb-6 transition-colors" aria-hidden="true">
             {renderWelcomeIcon(heroIconName, 40)}
           </div>
-          <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400 pb-2">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400 pb-2">
             {heroTitle}
           </h1>
-          <p className="text-lg text-gray-500 dark:text-gray-400 max-w-md mx-auto font-medium">
+          <p className="text-base sm:text-lg text-gray-500 dark:text-gray-400 max-w-md mx-auto font-medium">
             {heroSubtitle}
           </p>
         </div>
@@ -106,12 +106,13 @@ export function WelcomeScreen({ onSuggestionClick, disabled, theme }: WelcomeScr
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-xl mx-auto">
             {suggestions.map((s, i) => (
               <button
+                type="button"
                 key={i}
                 onClick={() => onSuggestionClick(s.prompt || s.title)}
                 disabled={disabled}
-                className="flex items-center gap-3 p-4 rounded-xl border border-[var(--theme-border)] bg-[var(--theme-card)] hover:bg-[var(--theme-card-muted)] hover:border-theme-border hover:shadow-md hover:shadow-[var(--theme-glow)] transition-all text-left group"
+                className="flex items-center gap-3 p-4 rounded-xl border border-[var(--theme-border)] bg-[var(--theme-card)] hover:bg-[var(--theme-card-muted)] hover:border-theme-border hover:shadow-md hover:shadow-[var(--theme-glow)] transition-all text-left group focus:outline-none focus-visible:ring-2 focus-visible:ring-theme-composer-focus focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900"
               >
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-theme-subtle text-theme-accent group-hover:scale-110 transition-transform">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-theme-subtle text-theme-accent group-hover:scale-110 transition-transform" aria-hidden="true">
                   {renderWelcomeIcon(s.iconName, 18)}
                 </div>
                 <div className="font-medium text-gray-900 dark:text-gray-100 text-sm group-hover:text-theme-accent transition-colors">
@@ -130,6 +131,11 @@ export function WelcomeScreen({ onSuggestionClick, disabled, theme }: WelcomeScr
         @keyframes fadeInUp {
           from { opacity: 0; transform: translateY(10px); }
           to { opacity: 1; transform: translateY(0); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .fade-in-up {
+            animation: none !important;
+          }
         }
       `}</style>
     </div>

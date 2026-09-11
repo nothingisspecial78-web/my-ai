@@ -43,6 +43,20 @@ export function ChatComposer({ onSend, disabled, enterToSend = true }: ChatCompo
       ) {
         return;
       }
+
+      // Do not steal focus if active element is an interactive control or inside a modal/dialog
+      if (e.target instanceof HTMLElement) {
+        if (
+          e.target.isContentEditable ||
+          e.target.closest('button') ||
+          e.target.closest('select') ||
+          e.target.closest('[role="dialog"]') ||
+          e.target.closest('[role="menu"]') ||
+          e.target.closest('[role="listbox"]')
+        ) {
+          return;
+        }
+      }
       
       if (textareaRef.current && document.activeElement !== textareaRef.current) {
         textareaRef.current.focus();
@@ -177,25 +191,26 @@ export function ChatComposer({ onSend, disabled, enterToSend = true }: ChatCompo
               <div key={idx} className="relative group w-16 h-16 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 shadow-sm shrink-0">
                 <img src={att.url} alt="Attachment" className="w-full h-full object-cover" />
                 <button
+                  type="button"
                   onClick={() => removeAttachment(idx)}
-                  className="absolute top-1 right-1 p-0.5 rounded-full bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70"
+                  className="absolute top-1 right-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus:opacity-100 transition-opacity hover:bg-black/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
                   aria-label="Remove image"
                 >
-                  <X size={12} />
+                  <X size={12} aria-hidden="true" />
                 </button>
               </div>
             ))}
             
             {isUploading && (
-              <div className="w-16 h-16 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex flex-col items-center justify-center shrink-0">
-                <Loader2 size={18} className="animate-spin text-theme-accent mb-1" />
+              <div className="w-16 h-16 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex flex-col items-center justify-center shrink-0" role="status" aria-label="Uploading image">
+                <Loader2 size={18} className="animate-spin text-theme-accent mb-1" aria-hidden="true" />
               </div>
             )}
 
             {uploadError && (
-              <div className="flex items-center gap-2 text-sm text-red-500 bg-red-50 dark:bg-red-950/50 px-3 py-1.5 rounded-lg">
+              <div className="flex items-center gap-2 text-sm text-red-500 bg-red-50 dark:bg-red-950/50 px-3 py-1.5 rounded-lg" role="alert">
                 <span>{uploadError}</span>
-                <button onClick={() => setUploadError(null)} className="hover:text-red-700"><X size={14}/></button>
+                <button type="button" onClick={() => setUploadError(null)} aria-label="Dismiss error" className="hover:text-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 rounded"><X size={14} aria-hidden="true" /></button>
               </div>
             )}
           </div>
@@ -218,16 +233,16 @@ export function ChatComposer({ onSend, disabled, enterToSend = true }: ChatCompo
         {/* Bottom Toolbar */}
         <div className="flex items-center justify-between px-2 pb-1 pt-2">
           <div className="flex items-center gap-2">
-            <label className={cn("flex h-9 w-9 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300 transition-colors focus-within:ring-2 focus-within:ring-theme-composer-focus cursor-pointer", isUploading && "opacity-50 pointer-events-none")}>
+            <label className={cn("flex h-10 w-10 sm:h-9 sm:w-9 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300 transition-colors focus-within:ring-2 focus-within:ring-theme-composer-focus cursor-pointer", isUploading && "opacity-50 pointer-events-none")}>
               <input ref={fileInputRef} type="file" className="hidden" aria-label="Upload file or photo" accept="image/jpeg,image/png,image/webp" onChange={handleFileUpload} disabled={isUploading} />
-              <Plus size={18} strokeWidth={2.5} />
+              <Plus size={18} strokeWidth={2.5} aria-hidden="true" />
             </label>
             <button 
               type="button"
               aria-label="Search"
-              className="flex h-9 items-center gap-1.5 rounded-full border border-gray-200 dark:border-gray-700/60 px-3 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-xs font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-theme-composer-focus"
+              className="flex h-10 sm:h-9 items-center gap-1.5 rounded-full border border-gray-200 dark:border-gray-700/60 px-3.5 sm:px-3 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-xs font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-theme-composer-focus"
             >
-              <Search size={14} />
+              <Search size={14} aria-hidden="true" />
               Search
             </button>
           </div>
@@ -236,23 +251,24 @@ export function ChatComposer({ onSend, disabled, enterToSend = true }: ChatCompo
             <button 
               type="button"
               aria-label="Voice input"
-              className="flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors focus:outline-none"
+              className="flex h-10 w-10 sm:h-8 sm:w-8 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-theme-composer-focus"
             >
-              <Mic size={18} />
+              <Mic size={18} aria-hidden="true" />
             </button>
             {/* Send Button */}
             <button
+              type="button"
               onClick={handleSubmit}
               disabled={isSendDisabled}
               aria-label="Send message"
               className={cn(
-                "flex h-9 w-9 items-center justify-center rounded-full text-white transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-theme-composer-focus focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900",
+                "flex h-10 w-10 sm:h-9 sm:w-9 items-center justify-center rounded-full text-white transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-theme-composer-focus focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900",
                 !isSendDisabled
                   ? "bg-theme-accent hover:opacity-90 shadow-sm"
                   : "bg-gray-200 dark:bg-gray-700 text-gray-400 cursor-not-allowed"
               )}
             >
-              <ArrowUp size={18} strokeWidth={2.5} />
+              <ArrowUp size={18} strokeWidth={2.5} aria-hidden="true" />
             </button>
           </div>
         </div>

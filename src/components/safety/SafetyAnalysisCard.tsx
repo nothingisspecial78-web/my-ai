@@ -124,20 +124,22 @@ export function SafetyAnalysisCard({ report, className, themeSlug, theme }: Safe
           <button
             type="button"
             onClick={() => setIsExpanded(prev => !prev)}
-            className="p-1 rounded-md hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-muted-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            aria-expanded={isExpanded}
+            aria-controls="safety-analysis-details"
+            className="flex h-9 w-9 sm:h-8 sm:w-8 items-center justify-center rounded-md hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-muted-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             aria-label={isExpanded ? 'Collapse analysis details' : 'Expand analysis details'}
           >
-            {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            {isExpanded ? <ChevronUp className="h-4 w-4" aria-hidden="true" /> : <ChevronDown className="h-4 w-4" aria-hidden="true" />}
           </button>
         </div>
       </div>
 
       {/* Expandable details */}
       {isExpanded && (
-        <div className="p-4 space-y-4 text-sm bg-background/60">
+        <div id="safety-analysis-details" className="p-4 space-y-4 text-sm bg-background/60">
           {/* Summary */}
           {summary && (
-            <p className="text-xs text-muted-foreground leading-relaxed">
+            <p className="text-xs text-muted-foreground leading-relaxed break-words [overflow-wrap:anywhere]">
               {summary}
             </p>
           )}
@@ -155,13 +157,13 @@ export function SafetyAnalysisCard({ report, className, themeSlug, theme }: Safe
                     key={i}
                     className="rounded-lg border border-border/60 bg-muted/40 p-2.5 text-xs flex flex-col gap-1"
                   >
-                    <div className="flex items-center justify-between font-semibold text-foreground">
-                      <span>{f.title}</span>
-                      <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-background border border-border text-muted-foreground">
+                    <div className="flex items-center justify-between font-semibold text-foreground flex-wrap gap-1">
+                      <span className="break-words [overflow-wrap:anywhere]">{f.title}</span>
+                      <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-background border border-border text-muted-foreground shrink-0">
                         {f.severity}
                       </span>
                     </div>
-                    <p className="text-muted-foreground leading-normal">{f.description}</p>
+                    <p className="text-muted-foreground leading-normal break-words [overflow-wrap:anywhere]">{f.description}</p>
                   </li>
                 ))}
               </ul>
@@ -219,9 +221,9 @@ export function SafetyAnalysisCard({ report, className, themeSlug, theme }: Safe
                             )}
                           </div>
                         </div>
-                        <p className="text-muted-foreground leading-normal">{ev.description}</p>
+                        <p className="text-muted-foreground leading-normal break-words [overflow-wrap:anywhere]">{ev.description}</p>
                         {ev.snippet && (
-                          <span className="font-mono text-[10px] text-muted-foreground/80 bg-background/80 px-2 py-1 rounded border border-border/40">
+                          <span className="font-mono text-[10px] text-muted-foreground/80 bg-background/80 px-2 py-1 rounded border border-border/40 break-all">
                             {ev.snippet}
                           </span>
                         )}

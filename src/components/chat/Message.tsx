@@ -67,7 +67,7 @@ function MessageComponent({ id, role, content, isLast, onRegenerate, timestamp, 
   if (isUser) {
     return (
       <div className="group w-full py-4 px-4 flex justify-end">
-        <div className="max-w-[75%] flex flex-col items-end gap-1">
+        <div className="max-w-[85%] sm:max-w-[75%] flex flex-col items-end gap-1">
           {imageAttachments.length > 0 && (
             <div className="flex flex-wrap justify-end gap-2 mb-1">
               {imageAttachments.map((att, idx) => (
@@ -79,7 +79,7 @@ function MessageComponent({ id, role, content, isLast, onRegenerate, timestamp, 
           )}
           {content.trim() && (
             <div className="bg-[var(--theme-bubble-user)] text-[var(--theme-bubble-user-text)] px-5 py-3 rounded-2xl rounded-br-sm shadow-sm">
-              <div className="whitespace-pre-wrap break-words text-[15px] leading-relaxed">
+              <div className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[15px] leading-relaxed">
                 {content}
               </div>
             </div>
@@ -91,7 +91,7 @@ function MessageComponent({ id, role, content, isLast, onRegenerate, timestamp, 
           )}
 
           {/* User Action Toolbar */}
-          <div className="flex items-center gap-1.5 pt-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+          <div className="flex items-center gap-1.5 pt-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100 focus-within:opacity-100 transition-opacity">
             <ToolbarButton 
               icon={Pencil} 
               label="Edit" 
@@ -131,13 +131,14 @@ function MessageComponent({ id, role, content, isLast, onRegenerate, timestamp, 
               />
             )}
             {isThinking ? (
-              <div className="flex items-center gap-1.5 h-6 opacity-70">
-                <div className="w-2 h-2 rounded-full bg-theme-accent animate-pulse [animation-delay:-0.3s]"></div>
-                <div className="w-2 h-2 rounded-full bg-theme-accent animate-pulse [animation-delay:-0.15s]"></div>
-                <div className="w-2 h-2 rounded-full bg-theme-accent animate-pulse"></div>
+              <div className="flex items-center gap-1.5 h-6 opacity-70" role="status" aria-label="Thinking...">
+                <span className="sr-only">Generating response...</span>
+                <div className="w-2 h-2 rounded-full bg-theme-accent animate-pulse [animation-delay:-0.3s]" aria-hidden="true"></div>
+                <div className="w-2 h-2 rounded-full bg-theme-accent animate-pulse [animation-delay:-0.15s]" aria-hidden="true"></div>
+                <div className="w-2 h-2 rounded-full bg-theme-accent animate-pulse" aria-hidden="true"></div>
               </div>
             ) : (
-              <div className="prose prose-slate dark:prose-invert max-w-none break-words
+              <div className="prose prose-slate dark:prose-invert max-w-none break-words [overflow-wrap:anywhere]
                 prose-p:leading-relaxed prose-pre:p-0 prose-pre:bg-transparent
                 prose-code:bg-gray-100 dark:prose-code:bg-gray-800 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md prose-code:font-normal
                 prose-pre:border prose-pre:border-[var(--theme-border)] prose-pre:rounded-xl overflow-hidden text-[15px] min-h-[1.5rem]"
@@ -145,6 +146,15 @@ function MessageComponent({ id, role, content, isLast, onRegenerate, timestamp, 
                 <ReactMarkdown 
                   remarkPlugins={[remarkGfm]}
                   components={{
+                    table({ children, ...props }) {
+                      return (
+                        <div className="w-full overflow-x-auto my-4 rounded-lg border border-[var(--theme-border)]">
+                          <table {...props} className="w-full text-sm text-left border-collapse">
+                            {children}
+                          </table>
+                        </div>
+                      );
+                    },
                     pre({ children, ...props }) {
                       let codeString = '';
                       type ElementProps = { children?: React.ReactNode, className?: string };
@@ -168,11 +178,12 @@ function MessageComponent({ id, role, content, isLast, onRegenerate, timestamp, 
                           <div className="flex items-center justify-between px-4 py-2 bg-[var(--theme-card-muted)] border-b border-[var(--theme-border)] text-xs text-gray-500">
                             <span className="uppercase font-semibold tracking-wider">{language || 'Code'}</span>
                             <button
+                              type="button"
                               onClick={() => handleCopyCode(codeString)}
-                              className="flex items-center gap-1.5 hover:text-gray-900 dark:hover:text-gray-300 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-theme-composer-focus rounded px-1"
+                              className="flex items-center gap-1.5 hover:text-gray-900 dark:hover:text-gray-300 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-theme-composer-focus rounded px-2 py-1 min-h-[28px]"
                               aria-label="Copy code"
                             >
-                              <Copy size={14} />
+                              <Copy size={14} aria-hidden="true" />
                               <span>Copy</span>
                             </button>
                           </div>
@@ -198,7 +209,7 @@ function MessageComponent({ id, role, content, isLast, onRegenerate, timestamp, 
 
           {/* AI Action Toolbar */}
           {!isThinking && (
-            <div className="flex flex-wrap items-center gap-1.5 pt-3 pl-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+            <div className="flex flex-wrap items-center gap-1.5 pt-3 pl-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100 focus-within:opacity-100 transition-opacity">
               <ToolbarButton 
                 icon={Volume2} 
                 label="Read aloud" 
@@ -211,7 +222,7 @@ function MessageComponent({ id, role, content, isLast, onRegenerate, timestamp, 
                   }
                 }} 
               />
-              <div className="w-px h-4 bg-gray-200 dark:bg-gray-800 mx-1"></div>
+              <div className="w-px h-4 bg-gray-200 dark:bg-gray-800 mx-1" aria-hidden="true"></div>
               
               <ToolbarButton 
                 icon={ThumbsUp} 
@@ -258,15 +269,16 @@ function ToolbarButton({
 }) {
   return (
     <button
+      type="button"
       onClick={onClick}
       title={label}
       aria-label={label}
       className={cn(
-        "flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-theme-composer-focus text-xs font-medium",
+        "flex items-center justify-center gap-1.5 px-2.5 py-1.5 min-h-[36px] min-w-[36px] rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-theme-composer-focus text-xs font-medium",
         active && "text-theme-accent bg-theme-subtle"
       )}
     >
-      <Icon size={14} />
+      <Icon size={14} aria-hidden="true" />
       {text && <span className="hidden sm:inline">{text}</span>}
     </button>
   );
@@ -274,7 +286,7 @@ function ToolbarButton({
 
 function SparklesIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
       <path d="M12 2L14.645 9.355L22 12L14.645 14.645L12 22L9.355 14.645L2 12L9.355 9.355L12 2Z" fill="currentColor"/>
     </svg>
   );

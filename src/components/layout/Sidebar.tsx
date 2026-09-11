@@ -95,6 +95,7 @@ function ThemeIconForId({
 export function Sidebar({ initialConversations = [], initialCursor = null }: { initialConversations?: Conversation[], initialCursor?: string | null }) {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [conversations, setConversations] = useState<Conversation[]>(initialConversations);
   const [cursor, setCursor] = useState<string | null>(initialCursor);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -113,6 +114,18 @@ export function Sidebar({ initialConversations = [], initialCursor = null }: { i
 
   const pathname = usePathname();
   const router = useRouter();
+
+  // Handle Escape key for mobile drawer and user menu
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (isUserMenuOpen) setIsUserMenuOpen(false);
+        if (isMobileOpen) setIsMobileOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isMobileOpen, isUserMenuOpen]);
   
   useEffect(() => {
     async function fetchUser() {
@@ -298,8 +311,9 @@ export function Sidebar({ initialConversations = [], initialCursor = null }: { i
                   <Link
                     key={chat.id}
                     href={`/chat/${chat.id}`}
+                    onClick={() => setIsMobileOpen(false)}
                     className={cn(
-                      "flex w-full flex-col gap-0.5 rounded-lg px-3 py-2 transition-colors pr-10 focus:outline-none",
+                      "flex w-full flex-col gap-0.5 rounded-lg px-3 py-2 transition-colors pr-10 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
                       pathname === `/chat/${chat.id}`
                         ? "bg-gray-200/80 dark:bg-gray-800 font-medium text-gray-900 dark:text-white shadow-sm"
                         : "text-gray-700 dark:text-gray-300 hover:bg-gray-200/50 dark:hover:bg-gray-800/50"
@@ -344,15 +358,16 @@ export function Sidebar({ initialConversations = [], initialCursor = null }: { i
                         <div className="flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 bg-red-50 dark:bg-red-900/20 text-sm">
                           <span className="text-red-700 dark:text-red-400 truncate">Delete chat?</span>
                           <div className="flex items-center gap-2 shrink-0">
-                            <button onClick={() => handleDelete(chat.id)} className="text-red-700 dark:text-red-400 hover:underline font-medium">Yes</button>
-                            <button onClick={() => setDeleteConfirmId(null)} className="text-gray-600 dark:text-gray-400 hover:underline">No</button>
+                            <button onClick={() => handleDelete(chat.id)} className="text-red-700 dark:text-red-400 hover:underline font-medium min-h-[32px] px-2 py-1 flex items-center focus:outline-none focus-visible:ring-1 focus-visible:ring-red-500 rounded">Yes</button>
+                            <button onClick={() => setDeleteConfirmId(null)} className="text-gray-600 dark:text-gray-400 hover:underline min-h-[32px] px-2 py-1 flex items-center focus:outline-none focus-visible:ring-1 focus-visible:ring-gray-500 rounded">No</button>
                           </div>
                         </div>
                       ) : (
                         <Link
                           href={`/chat/${chat.id}`}
+                          onClick={() => setIsMobileOpen(false)}
                           className={cn(
-                            "flex w-full flex-col gap-0.5 rounded-lg px-3 py-2 transition-colors pr-10 focus:outline-none",
+                            "flex w-full flex-col gap-0.5 rounded-lg px-3 py-2 transition-colors pr-10 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
                             pathname === `/chat/${chat.id}`
                               ? "bg-gray-200/80 dark:bg-gray-800 font-medium text-gray-900 dark:text-white shadow-sm"
                               : "text-gray-700 dark:text-gray-300 hover:bg-gray-200/50 dark:hover:bg-gray-800/50"
@@ -364,20 +379,22 @@ export function Sidebar({ initialConversations = [], initialCursor = null }: { i
                       )}
                       
                       {editingId !== chat.id && deleteConfirmId !== chat.id && (
-                        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100 focus-within:opacity-100 transition-opacity">
                           <button 
+                            type="button"
                             onClick={(e) => handleRenameStart(chat.id, chat.title, e)}
                             aria-label="Rename conversation"
-                            className="p-1.5 text-gray-400 hover:text-gray-900 dark:hover:text-white focus:outline-none bg-gray-50/80 dark:bg-gray-950/80 rounded"
+                            className="flex h-8 w-8 items-center justify-center text-gray-400 hover:text-gray-900 dark:hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 bg-gray-50/90 dark:bg-gray-950/90 rounded"
                           >
-                            <Edit2 size={12} />
+                            <Edit2 size={13} aria-hidden="true" />
                           </button>
                           <button 
+                            type="button"
                             onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDeleteConfirmId(chat.id); }}
                             aria-label="Delete conversation"
-                            className="p-1.5 text-gray-400 hover:text-red-600 dark:hover:text-red-400 focus:outline-none bg-gray-50/80 dark:bg-gray-950/80 rounded ml-1"
+                            className="flex h-8 w-8 items-center justify-center text-gray-400 hover:text-red-600 dark:hover:text-red-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 bg-gray-50/90 dark:bg-gray-950/90 rounded ml-1"
                           >
-                            <Trash2 size={12} />
+                            <Trash2 size={13} aria-hidden="true" />
                           </button>
                         </div>
                       )}
@@ -404,33 +421,55 @@ export function Sidebar({ initialConversations = [], initialCursor = null }: { i
 
       {/* Footer / User Profile */}
       <div className="p-4 border-t border-gray-200 dark:border-gray-800">
-        <div className="flex items-center gap-3 cursor-pointer hover:bg-gray-200/50 dark:hover:bg-gray-800/50 p-2 rounded-xl transition-colors group relative">
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-purple-600 text-white font-bold text-sm shrink-0">
-            {userInitial}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="text-sm font-medium text-gray-900 dark:text-white truncate">
-              {userEmail ? userEmail.split('@')[0] : 'User'}
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setIsUserMenuOpen(prev => !prev)}
+            aria-haspopup="menu"
+            aria-expanded={isUserMenuOpen}
+            aria-label="User account menu"
+            className="flex w-full items-center gap-3 hover:bg-gray-200/50 dark:hover:bg-gray-800/50 p-2 rounded-xl transition-colors text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+          >
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-purple-600 text-white font-bold text-sm shrink-0" aria-hidden="true">
+              {userInitial}
             </div>
-            <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
-              {userEmail || 'Loading...'}
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                {userEmail ? userEmail.split('@')[0] : 'User'}
+              </div>
+              <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                {userEmail || 'Loading...'}
+              </div>
             </div>
-          </div>
+          </button>
           
-          <div className="absolute right-0 bottom-full mb-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 w-48 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all origin-bottom-left z-50">
-            <button 
-              onClick={() => setIsSettingsOpen(true)}
-              className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
-            >
-              <Settings size={14} /> Settings
-            </button>
-            <button 
-              onClick={handleLogout}
-              className="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-800"
-            >
-              <LogOut size={14} /> Log out
-            </button>
-          </div>
+          {isUserMenuOpen && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setIsUserMenuOpen(false)} aria-hidden="true" />
+              <div
+                role="menu"
+                aria-label="User account options"
+                className="absolute right-0 bottom-full mb-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 w-48 z-50 origin-bottom-left"
+              >
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => { setIsSettingsOpen(true); setIsUserMenuOpen(false); }}
+                  className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none focus-visible:bg-gray-100 dark:focus-visible:bg-gray-800"
+                >
+                  <Settings size={14} aria-hidden="true" /> Settings
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => { setIsUserMenuOpen(false); handleLogout(); }}
+                  className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none focus-visible:bg-gray-100 dark:focus-visible:bg-gray-800"
+                >
+                  <LogOut size={14} aria-hidden="true" /> Log out
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -439,24 +478,39 @@ export function Sidebar({ initialConversations = [], initialCursor = null }: { i
   return (
     <>
       {/* Mobile Nav */}
-      <div className="md:hidden fixed top-0 left-0 z-40 w-full h-14 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 flex items-center px-4">
-        <button onClick={() => setIsMobileOpen(true)} aria-label="Open sidebar menu" className="text-gray-600 dark:text-gray-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded">
-          <Menu size={24} />
+      <div className="md:hidden fixed top-0 left-0 z-40 w-full h-14 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 flex items-center px-3">
+        <button
+          type="button"
+          onClick={() => setIsMobileOpen(true)}
+          aria-label="Open sidebar menu"
+          className="flex h-10 w-10 items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-lg"
+        >
+          <Menu size={24} aria-hidden="true" />
         </button>
         <div className="flex-1 text-center font-medium text-gray-900 dark:text-white flex items-center justify-center gap-2">
-          <div className="flex h-5 w-5 items-center justify-center rounded bg-blue-600 text-white">
+          <div className="flex h-5 w-5 items-center justify-center rounded bg-blue-600 text-white" aria-hidden="true">
             <SparklesIcon />
           </div>
           MyAI
         </div>
-        <div className="w-6" />
+        <div className="w-10" />
       </div>
 
       {/* Mobile Drawer */}
       {isMobileOpen && (
-        <div className="md:hidden fixed inset-0 z-50 flex">
+        <div className="md:hidden fixed inset-0 z-50 flex" role="dialog" aria-modal="true" aria-label="Navigation drawer">
           <div className="fixed inset-0 bg-black/50 transition-opacity" onClick={() => setIsMobileOpen(false)} aria-hidden="true" />
-          <div className="relative w-80 max-w-[85%] bg-gray-50 h-full shadow-xl flex-shrink-0 flex flex-col">
+          <div className="relative w-80 max-w-[85%] bg-gray-50 dark:bg-gray-950 h-full shadow-xl flex-shrink-0 flex flex-col z-10">
+            <div className="absolute top-2.5 right-2.5 z-10">
+              <button
+                type="button"
+                onClick={() => setIsMobileOpen(false)}
+                aria-label="Close sidebar"
+                className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+              >
+                <X size={20} aria-hidden="true" />
+              </button>
+            </div>
             {SidebarContent}
           </div>
         </div>
@@ -474,7 +528,7 @@ export function Sidebar({ initialConversations = [], initialCursor = null }: { i
 
 function SparklesIcon() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
       <path d="M12 2L14.645 9.355L22 12L14.645 14.645L12 22L9.355 14.645L2 12L9.355 9.355L12 2Z" fill="currentColor"/>
     </svg>
   );
