@@ -12,6 +12,7 @@ import { AIStreamEvent, Attachment } from '@/lib/ai/types';
 import { useChatPreferences } from '@/hooks/use-chat-preferences';
 import { extractConversationTitle } from '@/lib/utilities/title';
 import { ThemeDefinition } from '@/lib/theme/types';
+import { ThemeBadge } from '@/components/chat/ThemeBadge';
 
 type DBConversation = Database['public']['Tables']['conversations']['Row'];
 type DBMessage = Database['public']['Tables']['messages']['Row'];
@@ -402,15 +403,18 @@ export function ChatClient({ conversation, initialMessages, theme }: ChatClientP
 
   return (
     <div data-theme={theme?.slug || 'general'} className="flex h-full w-full flex-col relative bg-[var(--theme-bg)] transition-colors">
-      <header className="sticky top-0 z-10 flex h-14 items-center justify-between bg-white/95 dark:bg-gray-900/95 px-4 backdrop-blur-md hidden md:flex">
-        <div className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 px-2 py-1.5 rounded-lg transition-colors">
-          <h1 className="text-[15px] font-semibold text-gray-900 dark:text-gray-100 truncate max-w-md flex items-center gap-2">
-            {conversation.title}
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-50"><path d="m6 9 6 6 6-6"/></svg>
-          </h1>
-          {isThinking && <Loader2 size={12} className="animate-spin text-gray-400 ml-2" />}
+      <header className="sticky top-0 z-10 flex h-14 items-center justify-between bg-white/95 dark:bg-gray-900/95 px-4 backdrop-blur-md hidden md:flex border-b border-gray-100 dark:border-gray-800">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 px-2 py-1.5 rounded-lg transition-colors min-w-0">
+            <h1 className="text-[15px] font-semibold text-gray-900 dark:text-gray-100 truncate max-w-xs lg:max-w-md flex items-center gap-2">
+              {conversation.title}
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-50 shrink-0"><path d="m6 9 6 6 6-6"/></svg>
+            </h1>
+            {isThinking && <Loader2 size={12} className="animate-spin text-gray-400 ml-2 shrink-0" />}
+          </div>
+          <ThemeBadge theme={theme} />
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           {isSending && (
             <button 
               onClick={stopGeneration}
@@ -429,6 +433,14 @@ export function ChatClient({ conversation, initialMessages, theme }: ChatClientP
           </button>
         </div>
       </header>
+
+      {/* Mobile Context / Theme Bar */}
+      <div className="md:hidden flex items-center justify-between px-4 py-2 border-b border-[var(--theme-border)] bg-[var(--theme-bg)]/80 backdrop-blur-sm shrink-0 min-w-0">
+        <span className="text-xs font-medium text-gray-500 dark:text-gray-400 truncate max-w-[180px] sm:max-w-[240px]">
+          {conversation.title}
+        </span>
+        <ThemeBadge theme={theme} />
+      </div>
 
       <div className="flex-1 overflow-y-auto w-full">
         {messages.length === 0 ? (
