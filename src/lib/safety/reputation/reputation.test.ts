@@ -723,4 +723,269 @@ describe('Phase 4.8A — URL Reputation Intelligence Architecture', () => {
       expect(fallback).not.toContain('utm_source');
     });
   });
+
+  // =========================================================================
+  // Phase 4.8C: Multi-Provider Consensus & Disagreement Matrix (Scenarios A-H)
+  // =========================================================================
+  describe('Phase 4.8C — Multi-Provider Reputation Intelligence Matrix (Scenarios A through H)', () => {
+    // Scenario A: URLhaus malicious + Safe Browsing malicious => strong malicious reputation
+    it('Scenario A: aggregates agreeing malicious providers into high-confidence malicious consensus', async () => {
+      const urlhaus = new MockReputationProvider({
+        id: 'urlhaus',
+        name: 'URLhaus',
+        defaultResult: { detectionStatus: 'malicious', confidence: 'high', threatCategories: ['malware'] },
+        cache,
+      });
+      const safeBrowsing = new MockReputationProvider({
+        id: 'safebrowsing',
+        name: 'Google Safe Browsing',
+        defaultResult: { detectionStatus: 'malicious', confidence: 'high', threatCategories: ['phishing'] },
+        cache,
+      });
+
+      const aggregate = await ReputationAggregator.lookupAndAggregate(
+        'https://confirmed-malware-domain.com/setup.exe',
+        [urlhaus, safeBrowsing]
+      );
+
+      expect(aggregate.aggregateStatus).toBe('malicious');
+      expect(aggregate.confidence).toBe('high');
+      expect(aggregate.disputed).toBe(false);
+      expect(aggregate.consensusScore).toBe(1.0);
+      expect(aggregate.findings.length).toBe(1);
+      expect(aggregate.findings[0].type).toBe('reputation_malicious');
+      expect(aggregate.findings[0].severity).toBe('high');
+      expect(aggregate.evidence.length).toBe(2);
+    });
+
+    // Scenario B: URLhaus malicious + Safe Browsing clean => disputed, not blindly malicious
+    it('Scenario B: detects provider conflict and resolves to disputed without blindly flagging malicious', async () => {
+      const urlhaus = new MockReputationProvider({
+        id: 'urlhaus',
+        name: 'URLhaus',
+        defaultResult: { detectionStatus: 'malicious', confidence: 'high', threatCategories: ['malware'] },
+        cache,
+      });
+      const safeBrowsing = new MockReputationProvider({
+        id: 'safebrowsing',
+        name: 'Google Safe Browsing',
+        defaultResult: { detectionStatus: 'clean', confidence: 'medium' },
+        cache,
+      });
+
+      const aggregate = await ReputationAggregator.lookupAndAggregate(
+        'https://disputed-cdn-link.com/file',
+        [urlhaus, safeBrowsing]
+      );
+
+      expect(aggregate.disputed).toBe(true);
+      expect(aggregate.aggregateStatus).toBe('suspicious');
+      expect(aggregate.confidence).toBe('medium');
+      expect(aggregate.findings.length).toBe(1);
+      expect(aggregate.findings[0].type).toBe('reputation_disputed');
+      expect(aggregate.findings[0].severity).toBe('medium');
+      expect(aggregate.limitations.some(l => l.includes('disagree'))).toBe(true);
+    });
+
+    // Scenario C: URLhaus unknown + Safe Browsing clean => clean reputation evidence, not absolute safety
+    it('Scenario C: returns clean reputation with partial coverage limitation when one provider is unknown', async () => {
+      const urlhaus = new MockReputationProvider({
+        id: 'urlhaus',
+        name: 'URLhaus',
+        defaultResult: { detectionStatus: 'unknown', confidence: 'low' },
+        cache,
+      });
+      const safeBrowsing = new MockReputationProvider({
+        id: 'safebrowsing',
+        name: 'Google Safe Browsing',
+        defaultResult: { detectionStatus: 'clean', confidence: 'medium' },
+        cache,
+      });
+
+      const aggregate = await ReputationAggregator.lookupAndAggregate(
+        'https://fresh-normal-domain.com/blog',
+        [urlhaus, safeBrowsing]
+      );
+
+      expect(aggregate.aggregateStatus).toBe('clean');
+      expect(aggregate.confidence).toBe('medium'); // Single provider clean is medium confidence
+      expect(aggregate.disputed).toBe(false);
+      expect(aggregate.findings.length).toBe(1);
+      expect(aggregate.findings[0].type).toBe('reputation_clean');
+      expect(aggregate.limitations.some(l => l.includes('partial coverage'))).toBe(true);
+      expect(aggregate.limitations.some(l => l.includes('do not guarantee safety'))).toBe(true);
+    });
+
+    // Scenario D: URLhaus unknown + Safe Browsing unknown => unknown
+    it('Scenario D: returns unknown status without phantom findings when all providers report unknown', async () => {
+      const urlhaus = new MockReputationProvider({
+        id: 'urlhaus',
+        name: 'URLhaus',
+        defaultResult: { detectionStatus: 'unknown', confidence: 'low' },
+        cache,
+      });
+      const safeBrowsing = new MockReputationProvider({
+        id: 'safebrowsing',
+        name: 'Google Safe Browsing',
+        defaultResult: { detectionStatus: 'unknown', confidence: 'low' },
+        cache,
+      });
+
+      const aggregate = await ReputationAggregator.lookupAndAggregate(
+        'https://completely-unrecorded-site.net/page',
+        [urlhaus, safeBrowsing]
+      );
+
+      expect(aggregate.aggregateStatus).toBe('unknown');
+      expect(aggregate.confidence).toBe('low');
+      expect(aggregate.disputed).toBe(false);
+      expect(aggregate.findings.length).toBe(0); // Zero phantom findings
+      expect(aggregate.summary).toContain('Unknown');
+    });
+
+    // Scenario E: URLhaus unavailable + Safe Browsing unavailable => unavailable
+    it('Scenario E: degrades gracefully to unavailable when all providers fail or are unconfigured', async () => {
+      const urlhaus = new MockReputationProvider({
+        id: 'urlhaus',
+        name: 'URLhaus',
+        forceError: true,
+        cache,
+      });
+      const safeBrowsing = new MockReputationProvider({
+        id: 'safebrowsing',
+        name: 'Google Safe Browsing',
+        forceTimeout: true,
+        defaultTimeoutMs: 30,
+        cache,
+      });
+
+      const aggregate = await ReputationAggregator.lookupAndAggregate(
+        'https://some-site.org',
+        [urlhaus, safeBrowsing]
+      );
+
+      expect(aggregate.aggregateStatus).toBe('unavailable');
+      expect(aggregate.confidence).toBe('low');
+      expect(aggregate.disputed).toBe(false);
+      expect(aggregate.findings.length).toBe(0);
+      expect(aggregate.limitations.some(l => l.includes('URLhaus'))).toBe(true);
+      expect(aggregate.limitations.some(l => l.includes('Google Safe Browsing'))).toBe(true);
+    });
+
+    // Scenario F: URLhaus malicious + Safe Browsing unavailable => malicious remains with partial coverage limitations
+    it('Scenario F: preserves malicious reputation evidence when secondary provider is unavailable', async () => {
+      const urlhaus = new MockReputationProvider({
+        id: 'urlhaus',
+        name: 'URLhaus',
+        defaultResult: { detectionStatus: 'malicious', confidence: 'high', threatCategories: ['malware'] },
+        cache,
+      });
+      const safeBrowsing = new MockReputationProvider({
+        id: 'safebrowsing',
+        name: 'Google Safe Browsing',
+        forceError: true,
+        cache,
+      });
+
+      const aggregate = await ReputationAggregator.lookupAndAggregate(
+        'https://malware-source.com/trojan.zip',
+        [urlhaus, safeBrowsing]
+      );
+
+      expect(aggregate.aggregateStatus).toBe('malicious');
+      expect(aggregate.disputed).toBe(false);
+      expect(aggregate.findings.length).toBe(1);
+      expect(aggregate.findings[0].type).toBe('reputation_malicious');
+      expect(aggregate.limitations.some(l => l.includes('Google Safe Browsing'))).toBe(true);
+      expect(aggregate.limitations.some(l => l.includes('partial provider coverage'))).toBe(true);
+    });
+
+    // Scenario G: URLhaus clean/unknown + Safe Browsing malicious => disagreement or threat represented
+    it('Scenario G: correctly represents disagreement when Safe Browsing flags malicious but URLhaus is clean', async () => {
+      const urlhaus = new MockReputationProvider({
+        id: 'urlhaus',
+        name: 'URLhaus',
+        defaultResult: { detectionStatus: 'clean', confidence: 'medium' },
+        cache,
+      });
+      const safeBrowsing = new MockReputationProvider({
+        id: 'safebrowsing',
+        name: 'Google Safe Browsing',
+        defaultResult: { detectionStatus: 'malicious', confidence: 'high', threatCategories: ['phishing'] },
+        cache,
+      });
+
+      const aggregate = await ReputationAggregator.lookupAndAggregate(
+        'https://safe-browsing-phish.com/login',
+        [urlhaus, safeBrowsing]
+      );
+
+      expect(aggregate.disputed).toBe(true);
+      expect(aggregate.aggregateStatus).toBe('suspicious');
+      expect(aggregate.findings.length).toBe(1);
+      expect(aggregate.findings[0].type).toBe('reputation_disputed');
+    });
+
+    // Scenario H: Local lexical HIGH + all reputation providers clean => final risk remains HIGH
+    it('Scenario H: does NOT allow clean reputation to overwrite or downgrade strong lexical phishing indicators', () => {
+      const localLexicalFinding = {
+        id: 'find-lookalike',
+        type: 'lookalike_brand',
+        severity: 'high' as const,
+        title: 'PayPal Lookalike Domain',
+        description: 'Target hostname contains typosquatting pattern mimicking paypal.com.',
+        confidence: 'high' as const,
+        evidenceIds: ['ev-1'],
+      };
+
+      const cleanReputationFinding = {
+        id: 'find-clean-rep',
+        type: 'reputation_clean',
+        severity: 'info' as const,
+        title: 'Clean Reputation Across Providers',
+        description: 'No threat intelligence vendor currently flags this domain.',
+        confidence: 'high' as const,
+        evidenceIds: ['ev-rep-1', 'ev-rep-2'],
+      };
+
+      const analyzerResults: AnalyzerResult[] = [
+        {
+          analyzerId: 'url',
+          analyzerType: 'url',
+          status: 'success',
+          confidence: 'high',
+          findings: [localLexicalFinding],
+          evidence: [],
+        },
+        {
+          analyzerId: 'reputation-aggregator',
+          analyzerType: 'url',
+          status: 'success',
+          confidence: 'high',
+          findings: [cleanReputationFinding],
+          evidence: [],
+        },
+      ];
+
+      const evaluation = RiskEngine.evaluate(
+        [localLexicalFinding, cleanReputationFinding],
+        analyzerResults
+      );
+
+      // CRITICAL ASSERTION: Final risk must remain HIGH despite clean external reputation
+      expect(evaluation.riskLevel).toBe('high');
+      expect(evaluation.score).toBeGreaterThanOrEqual(20);
+    });
+
+    // Registry multi-provider defaults
+    it('initializes default registry with both URLhaus and Google Safe Browsing', () => {
+      const registry = new ReputationProviderRegistry();
+      registry.resetDefaults();
+
+      const all = registry.getAll();
+      expect(all.length).toBe(2);
+      expect(registry.get('urlhaus')).toBeDefined();
+      expect(registry.get('safebrowsing')).toBeDefined();
+    });
+  });
 });

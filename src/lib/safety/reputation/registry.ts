@@ -6,6 +6,7 @@
 
 import { ReputationProvider } from './types';
 import { urlhausProvider } from './urlhaus';
+import { safeBrowsingProvider } from './safebrowsing';
 
 export class ReputationProviderRegistry {
   private providers = new Map<string, ReputationProvider>();
@@ -67,8 +68,12 @@ export class ReputationProviderRegistry {
   resetDefaults(): void {
     this.clear();
     this.register(urlhausProvider);
+    this.register(safeBrowsingProvider);
   }
 }
 
 // Global default singleton registry
-export const reputationRegistry = new ReputationProviderRegistry([urlhausProvider]);
+export const reputationRegistry = new ReputationProviderRegistry([
+  urlhausProvider,
+  safeBrowsingProvider,
+]);

@@ -159,30 +159,82 @@ export function SafetyAnalysisCard({ report, className }: SafetyAnalysisCardProp
           {(() => {
             const repEvidence = (evidence || []).filter(e => e.sourceType === 'reputation_provider');
             if (repEvidence.length === 0) return null;
+
+            const repFinding = findings.find(f => f.type.startsWith('reputation_'));
+
             return (
-              <div>
+              <div className="space-y-2">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
                   <Globe className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
                   Reputation Telemetry ({repEvidence.length})
                 </h4>
                 <ul className="space-y-1.5 list-none pl-0">
-                  {repEvidence.map((ev, i) => (
-                    <li
-                      key={i}
-                      className="rounded-lg border border-border/60 bg-muted/40 p-2.5 text-xs flex flex-col gap-1"
-                    >
-                      <div className="flex items-center justify-between font-semibold text-foreground">
-                        <span>{ev.label || ev.sourceName}</span>
-                      </div>
-                      <p className="text-muted-foreground leading-normal">{ev.description}</p>
-                      {ev.snippet && (
-                        <span className="font-mono text-[10px] text-muted-foreground/80 bg-background/80 px-2 py-1 rounded border border-border/40">
-                          {ev.snippet}
-                        </span>
-                      )}
-                    </li>
-                  ))}
+                  {repEvidence.map((ev, i) => {
+                    const dStatus = (ev.data?.detectionStatus as string) || '';
+                    const dConf = (ev.data?.confidence as string) || '';
+                    return (
+                      <li
+                        key={i}
+                        className="rounded-lg border border-border/60 bg-muted/40 p-2.5 text-xs flex flex-col gap-1"
+                      >
+                        <div className="flex items-center justify-between font-semibold text-foreground flex-wrap gap-1">
+                          <span>{ev.label || ev.sourceName}</span>
+                          <div className="flex items-center gap-1.5">
+                            {dStatus && (
+                              <span
+                                className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                                  dStatus === 'malicious'
+                                    ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
+                                    : dStatus === 'suspicious'
+                                    ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
+                                    : dStatus === 'clean'
+                                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                                    : 'bg-muted text-muted-foreground border border-border/40'
+                                }`}
+                              >
+                                Status: {dStatus === 'clean' ? 'No Threat Match Found' : dStatus.charAt(0).toUpperCase() + dStatus.slice(1)}
+                              </span>
+                            )}
+                            {dConf && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-muted text-muted-foreground border border-border/40">
+                                Confidence: {dConf.charAt(0).toUpperCase() + dConf.slice(1)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <p className="text-muted-foreground leading-normal">{ev.description}</p>
+                        {ev.snippet && (
+                          <span className="font-mono text-[10px] text-muted-foreground/80 bg-background/80 px-2 py-1 rounded border border-border/40">
+                            {ev.snippet}
+                          </span>
+                        )}
+                      </li>
+                    );
+                  })}
                 </ul>
+
+                {/* Multi-provider Consensus Summary */}
+                {repFinding && repEvidence.length > 1 && (
+                  <div className="rounded-lg border border-border/60 bg-muted/30 p-2 text-xs flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 font-medium text-foreground">
+                      <span className="font-semibold">Consensus:</span>
+                      <span className="text-muted-foreground">
+                        {repFinding.type === 'reputation_disputed'
+                          ? 'Disputed'
+                          : repFinding.type === 'reputation_malicious'
+                          ? 'Malicious'
+                          : repFinding.type === 'reputation_clean'
+                          ? 'No Threats Flagged'
+                          : 'Suspicious'}
+                      </span>
+                    </div>
+                    {typeof repFinding.metadata?.consensusScore === 'number' && (
+                      <span className="text-[10px] text-muted-foreground font-mono">
+                        Score: {repFinding.metadata.consensusScore > 0 ? `+${repFinding.metadata.consensusScore}` : repFinding.metadata.consensusScore}
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })()}

@@ -144,6 +144,7 @@ export class ReputationAggregator {
     let maliciousCount = 0;
     let suspiciousCount = 0;
     let cleanCount = 0;
+    let unknownCount = 0;
 
     for (const r of availableResults) {
       const statusWeight = DETECTION_WEIGHTS[r.detectionStatus];
@@ -156,6 +157,19 @@ export class ReputationAggregator {
       if (r.detectionStatus === 'malicious') maliciousCount++;
       if (r.detectionStatus === 'suspicious') suspiciousCount++;
       if (r.detectionStatus === 'clean') cleanCount++;
+      if (r.detectionStatus === 'unknown') unknownCount++;
+    }
+
+    // Explicitly document partial provider coverage
+    if (unknownCount > 0 && (maliciousCount > 0 || cleanCount > 0 || suspiciousCount > 0)) {
+      limitations.push(
+        `${unknownCount} provider(s) had no recorded telemetry for this URL (partial coverage).`
+      );
+    }
+    if (unavailableResults.length > 0 && availableResults.length > 0) {
+      limitations.push(
+        'Reputation assessment is based on partial provider coverage due to unavailable vendor(s).'
+      );
     }
 
     const consensusScore = weightSum > 0 ? weightedScoreSum / weightSum : 0;
