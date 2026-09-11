@@ -35,13 +35,27 @@ export class InputClassifier {
 
     // 2. MIME type inspection
     if (input.mimeType) {
-      if (input.mimeType.startsWith('image/')) {
+      const normMime = input.mimeType.toLowerCase().split(';')[0].trim();
+      if (normMime.startsWith('image/')) {
         return 'image';
       }
       if (
-        input.mimeType === 'application/pdf' ||
-        input.mimeType.includes('officedocument') ||
-        input.mimeType.includes('msword')
+        normMime === 'application/javascript' ||
+        normMime === 'text/javascript' ||
+        normMime === 'application/typescript' ||
+        normMime === 'text/typescript' ||
+        normMime === 'text/x-python' ||
+        normMime === 'application/x-sh' ||
+        normMime === 'application/sql' ||
+        normMime === 'text/x-sql' ||
+        normMime === 'application/json'
+      ) {
+        return 'code';
+      }
+      if (
+        normMime === 'application/pdf' ||
+        normMime.includes('officedocument') ||
+        normMime.includes('msword')
       ) {
         return 'document';
       }
@@ -56,7 +70,7 @@ export class InputClassifier {
       if (/\.(pdf|docx|doc|pptx|xlsx|odt)$/.test(lower)) {
         return 'document';
       }
-      if (/\.(js|ts|jsx|tsx|py|go|rs|c|cpp|java|php|rb|sh|sql|html|css)$/.test(lower)) {
+      if (/\.(js|mjs|cjs|ts|tsx|mts|cts|jsx|py|go|rs|c|cpp|cc|cxx|h|hpp|java|php|rb|sh|bash|sql|html|htm|css|json)$/.test(lower)) {
         return 'code';
       }
     }

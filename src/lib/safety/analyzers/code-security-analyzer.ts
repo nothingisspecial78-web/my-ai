@@ -24,6 +24,10 @@ export class CodeSecurityAnalyzer implements SafetyAnalyzer {
       regex: /(api[_-]?key|secret|token|password|passwd|private[_-]?key)\s*[:=]\s*['"`][a-zA-Z0-9_\-.~]{16,}['"`]/i,
     },
     {
+      name: 'Hardcoded Bearer Authentication Token',
+      regex: /['"`]Bearer\s+[a-zA-Z0-9_\-\.]{20,}['"`]/i,
+    },
+    {
       name: 'AWS Access Key ID',
       regex: /\b(AKIA[0-9A-Z]{16})\b/,
     },
@@ -47,6 +51,27 @@ export class CodeSecurityAnalyzer implements SafetyAnalyzer {
       description: 'Using eval() or dynamic Function constructors allows arbitrary code execution if untrusted input reaches it.',
     },
     {
+      type: 'suspicious_code' as const,
+      name: 'Exfiltration or Transmission of Sensitive Credentials',
+      regex: /\b(fetch|sendBeacon|XMLHttpRequest|axios)\b[\s\S]{0,120}\b(password|passwd|credential|secret|bearer|token)\b/i,
+      severity: 'high' as const,
+      description: 'Network request transmitting sensitive credential or token data detected, which may indicate data exfiltration.',
+    },
+    {
+      type: 'suspicious_code' as const,
+      name: 'Insecure Credential Storage in Web Storage',
+      regex: /\b(localStorage|sessionStorage)\.setItem\s*\(\s*['"`](token|auth|key|secret|password|credential|jwt)['"`]/i,
+      severity: 'medium' as const,
+      description: 'Storing sensitive credentials in localStorage or sessionStorage leaves them vulnerable to client-side script theft.',
+    },
+    {
+      type: 'suspicious_redirect' as const,
+      name: 'Suspicious Client-Side Redirect',
+      regex: /\b(window\.)?location(\.href)?\s*=\s*['"`]https?:\/\//i,
+      severity: 'low' as const,
+      description: 'Automated client-side redirection to an external URL detected.',
+    },
+    {
       type: 'sql_injection_pattern' as const,
       name: 'Potential SQL Injection via String Concatenation',
       regex: /(SELECT|INSERT|UPDATE|DELETE)\s+.*(\+|\.concat\()|\bquery\s*\(\s*['"`].*\$\{/i,
@@ -67,7 +92,11 @@ export class CodeSecurityAnalyzer implements SafetyAnalyzer {
       return true;
     }
     // Check if filename indicates a code file
-    if (input.filename && /\.(js|ts|py|go|rs|c|cpp|php|rb|sh|sql)$/i.test(input.filename)) {
+    if (input.filename && /\.(js|mjs|cjs|ts|tsx|py|go|rs|c|cpp|php|rb|sh|sql)$/i.test(input.filename)) {
+      return true;
+    }
+    // Check if rawContent contains code signals
+    if (input.rawContent && (/\b(eval|exec|Function)\s*\(/.test(input.rawContent) || /\b(const|let|var|function|import)\b/.test(input.rawContent))) {
       return true;
     }
     return false;

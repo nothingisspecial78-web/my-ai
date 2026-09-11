@@ -2,7 +2,11 @@ import { AIProvider, Message, AIStreamEvent } from './types';
 import { GoogleGenAI } from '@google/genai';
 import { SYSTEM_INSTRUCTION } from './system-prompt';
 import { getEnv } from '@/lib/env';
-import { sanitizeFilename } from '@/lib/attachments';
+import {
+  sanitizeFilename,
+  isTextAnalyzableAttachment,
+  loadAttachmentContent,
+} from '@/lib/attachments';
 import {
   sanitizeHtmlToText,
   truncateExtractedText,
@@ -330,10 +334,10 @@ export class GeminiProvider implements AIProvider {
                 docFailCount++;
               }
             } else if (
-              (attType === 'text' || attType === 'html' || (attType === 'file' && (att.original_name?.endsWith('.txt') || att.original_name?.endsWith('.html') || att.original_name?.endsWith('.htm')))) &&
+              (attType === 'text' || attType === 'html' || isTextAnalyzableAttachment(att) || (attType === 'file' && (att.original_name?.endsWith('.txt') || att.original_name?.endsWith('.html') || att.original_name?.endsWith('.htm')))) &&
               att.url
             ) {
-              // TXT or HTML Document attachment
+              // TXT, HTML, or Code Document attachment
               hasTriedDocuments = true;
               if (docCount >= maxDocs) {
                 parts.push({ text: '[Attached document omitted due to context limits.]' });
@@ -341,81 +345,15 @@ export class GeminiProvider implements AIProvider {
               }
 
               try {
-                let publicId = att.public_id;
-                if (!publicId) {
-                  const urlObj = new URL(att.url);
-                  if (urlObj.protocol !== 'https:' || urlObj.hostname !== 'res.cloudinary.com') {
-                    throw new Error('Invalid host');
-                  }
-                  const segments = urlObj.pathname.split('/').filter(Boolean);
-                  if (segments[0] !== cloudName || segments[1] !== 'raw' || segments[2] !== 'upload') {
-                    throw new Error('Invalid path');
-                  }
-                  const uploadIdx = segments.indexOf('upload');
-                  const remainder = segments.slice(uploadIdx + 1);
-                  if (remainder[0] && remainder[0].startsWith('v') && /\d/.test(remainder[0])) {
-                    remainder.shift();
-                  }
-                  publicId = remainder.join('/');
-                }
+                const loaded = await loadAttachmentContent(att, {
+                  signal: options?.signal,
+                  cloudName,
+                });
 
-                if (!cloudName) throw new Error('Cloudinary config missing');
-
-                if (!publicId.startsWith('my_ai_uploads/')) {
-                  throw new Error('Invalid upload namespace');
-                }
-
-                if (!/^my_ai_uploads\/[a-zA-Z0-9_\-\.\/]+$/.test(publicId) || publicId.includes('..') || publicId.includes('//')) {
-                  throw new Error('Invalid characters in public_id');
-                }
-
-                const fetchUrl = `https://res.cloudinary.com/${cloudName}/raw/upload/v1/${publicId}`;
-                const res = await fetch(fetchUrl, { signal: options?.signal });
-                if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
-
-                const contentLength = res.headers.get('content-length');
-                const MAX_SIZE = 2 * 1024 * 1024; // 2MB
-                if (contentLength && parseInt(contentLength, 10) > MAX_SIZE) {
-                  throw new Error('Document exceeds 2MB limit');
-                }
-
-                if (!res.body) throw new Error('No response body');
-
-                const reader = res.body.getReader();
-                const chunks = [];
-                let downloaded = 0;
-
-                while (true) {
-                  const { done, value } = await reader.read();
-                  if (done) break;
-                  if (value) {
-                    downloaded += value.length;
-                    if (downloaded > MAX_SIZE) {
-                      reader.cancel().catch(() => {});
-                      throw new Error('Document exceeds 2MB limit during download');
-                    }
-                    chunks.push(value);
-                  }
-                }
-
-                const totalArray = new Uint8Array(downloaded);
-                let offset = 0;
-                for (const chunk of chunks) {
-                  totalArray.set(chunk, offset);
-                  offset += chunk.length;
-                }
-
-                const rawContent = Buffer.from(totalArray).toString('utf-8');
-                const isHtml = attType === 'html' || att.original_name?.endsWith('.html') || att.original_name?.endsWith('.htm');
+                const isHtml = loaded.type === 'html' || attType === 'html' || att.original_name?.endsWith('.html') || att.original_name?.endsWith('.htm');
                 const docName = sanitizeFilename(att.original_name || (isHtml ? 'page.html' : 'document.txt'));
 
-                if (isHtml) {
-                  const sanitized = sanitizeHtmlToText(rawContent);
-                  parts.push({ text: wrapDocumentContext(docName, 'HTML', sanitized) });
-                } else {
-                  const truncated = truncateExtractedText(rawContent);
-                  parts.push({ text: wrapDocumentContext(docName, 'Text', truncated) });
-                }
+                parts.push({ text: wrapDocumentContext(docName, isHtml ? 'HTML' : 'Text', loaded.content) });
 
                 docCount++;
                 docSuccessCount++;

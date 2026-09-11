@@ -71,6 +71,17 @@ export function SafetyAnalysisCard({ report, className, themeSlug, theme }: Safe
             ? 'Anomalous characteristics or potential vulnerabilities detected.'
             : 'Elevated caution warranted. Contains suspicious characteristics.',
         };
+      case 'unknown':
+        return {
+          label: 'ANALYSIS INCOMPLETE',
+          icon: AlertTriangle,
+          cardBorder: 'border-amber-500/40 dark:border-amber-500/50',
+          bgHeader: 'bg-amber-500/10 text-amber-700 dark:text-amber-300',
+          badge: 'bg-amber-600 text-white',
+          desc: isSecurity
+            ? 'One or more attachments could not be retrieved for inspection. Exercise caution.'
+            : 'Analysis could not be completed. Exercise general caution.',
+        };
       case 'low':
       default:
         return {
@@ -169,7 +180,9 @@ export function SafetyAnalysisCard({ report, className, themeSlug, theme }: Safe
               </ul>
             ) : (
               <p className="text-xs text-muted-foreground italic pl-1">
-                {presentation.emptyFindingsText || (isSecurity ? 'No anomalous threat signatures or vulnerable patterns detected.' : 'No suspicious indicators were detected in this message or link.')}
+                {riskLevel === 'unknown'
+                  ? (summary || 'One or more attachments could not be loaded for analysis. Exercise caution with unverified files.')
+                  : (presentation.emptyFindingsText || (isSecurity ? 'No anomalous threat signatures or vulnerable patterns detected.' : 'No suspicious indicators were detected in this message or link.'))}
               </p>
             )}
           </div>
