@@ -615,4 +615,89 @@ describe('GeminiProvider', () => {
     expect(parts.some((p: { inlineData?: { mimeType: string } }) => p.inlineData?.mimeType === 'application/pdf')).toBe(true);
     expect(parts.some((p: { text?: string }) => p.text === 'Compare these two')).toBe(true);
   });
+
+  it('30. Seamlessly falls back to candidate model on 429 quota exhaustion', async () => {
+    // First model throws 429 quota error
+    const quotaError = Object.assign(new Error('Quota exceeded for metric'), { status: 429 });
+    mockGenerateContentStream.mockRejectedValueOnce(quotaError);
+
+    // Second model succeeds
+    mockGenerateContentStream.mockImplementationOnce(async function* () {
+      yield { text: 'Fallback model response' };
+    });
+
+    const messages: Message[] = [{ id: '1', role: 'user', content: 'hi', created_at: new Date(), conversation_id: '1' }];
+    const generator = provider.generateStream(messages);
+
+    const events = [];
+    for await (const event of generator) {
+      events.push(event);
+    }
+
+    // Should have called generateContentStream twice (primary model, then fallback)
+    expect(mockGenerateContentStream).toHaveBeenCalledTimes(2);
+    expect(mockGenerateContentStream.mock.calls[0][0].model).toBe('gemini-1.5-pro');
+    expect(mockGenerateContentStream.mock.calls[1][0].model).toBe('gemini-3.6-flash');
+
+    const chunk = events.find(e => e.type === 'chunk');
+    expect(chunk).toBeDefined();
+    expect((chunk as { text: string }).text).toBe('Fallback model response');
+
+    const doneEvent = events.find(e => e.type === 'done');
+    expect(doneEvent).toBeDefined();
+    expect((doneEvent as { metadata?: { model: string } }).metadata?.model).toBe('gemini-3.6-flash');
+  });
+
+  it('31. Seamlessly falls back to candidate model on 503 high demand', async () => {
+    const busyError = Object.assign(new Error('This model is currently experiencing high demand'), { status: 503 });
+    mockGenerateContentStream.mockRejectedValueOnce(busyError);
+
+    mockGenerateContentStream.mockImplementationOnce(async function* () {
+      yield { text: 'Response from healthy model' };
+    });
+
+    const messages: Message[] = [{ id: '1', role: 'user', content: 'hi', created_at: new Date(), conversation_id: '1' }];
+    const generator = provider.generateStream(messages);
+
+    const events = [];
+    for await (const event of generator) {
+      events.push(event);
+    }
+
+    expect(mockGenerateContentStream).toHaveBeenCalledTimes(2);
+    expect(mockGenerateContentStream.mock.calls[1][0].model).toBe('gemini-3.6-flash');
+    const doneEvent = events.find(e => e.type === 'done');
+    expect((doneEvent as { metadata?: { model: string } }).metadata?.model).toBe('gemini-3.6-flash');
+  });
+
+  it('32. Retries without thinkingConfig if model rejects thinking budget with 400', async () => {
+    // Set positive thinking budget so thinkingConfig is attached
+    process.env.GEMINI_THINKING_BUDGET = '100';
+
+    const badArgError = Object.assign(new Error('Request contains an invalid argument'), { status: 400 });
+    mockGenerateContentStream.mockRejectedValueOnce(badArgError);
+
+    mockGenerateContentStream.mockImplementationOnce(async function* () {
+      yield { text: 'Succeeded after stripping thinkingConfig' };
+    });
+
+    const messages: Message[] = [{ id: '1', role: 'user', content: 'hi', created_at: new Date(), conversation_id: '1' }];
+    const generator = provider.generateStream(messages);
+
+    const events = [];
+    for await (const event of generator) {
+      events.push(event);
+    }
+
+    expect(mockGenerateContentStream).toHaveBeenCalledTimes(2);
+    // First call had thinkingConfig
+    expect(mockGenerateContentStream.mock.calls[0][0].config.thinkingConfig).toBeDefined();
+    // Second retry on same model stripped thinkingConfig
+    expect(mockGenerateContentStream.mock.calls[1][0].config.thinkingConfig).toBeUndefined();
+
+    const chunk = events.find(e => e.type === 'chunk');
+    expect((chunk as { text: string }).text).toBe('Succeeded after stripping thinkingConfig');
+
+    delete process.env.GEMINI_THINKING_BUDGET;
+  });
 });

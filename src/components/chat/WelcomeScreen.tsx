@@ -86,24 +86,25 @@ export function WelcomeScreen({ onSuggestionClick, disabled, theme }: WelcomeScr
     : GENERAL_AI_THEME.welcome.suggestions;
 
   return (
-    <div className="flex h-full w-full flex-col items-center justify-center relative">
-      <div className="max-w-2xl w-full text-center space-y-8 fade-in-up px-4 pb-12">
+    <div className="flex min-h-full w-full flex-col items-center relative p-4 py-6 sm:py-12">
+      <div className="max-w-2xl w-full text-center space-y-4 sm:space-y-8 fade-in-up px-2 sm:px-4 my-auto">
         {/* Hero */}
-        <div className="space-y-4">
-          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-theme-avatar-bg text-theme-avatar-fg shadow-xl shadow-[var(--theme-glow)] mb-6 transition-colors" aria-hidden="true">
-            {renderWelcomeIcon(heroIconName, 40)}
+        <div className="space-y-3 sm:space-y-4">
+          <div className="mx-auto flex h-14 w-14 sm:h-20 sm:w-20 items-center justify-center rounded-2xl sm:rounded-3xl bg-theme-avatar-bg text-theme-avatar-fg shadow-xl shadow-[var(--theme-glow)] mb-3 sm:mb-6 transition-colors" aria-hidden="true">
+            <span className="sm:hidden">{renderWelcomeIcon(heroIconName, 28)}</span>
+            <span className="hidden sm:inline-flex">{renderWelcomeIcon(heroIconName, 40)}</span>
           </div>
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400 pb-2">
             {heroTitle}
           </h1>
-          <p className="text-base sm:text-lg text-gray-500 dark:text-gray-400 max-w-md mx-auto font-medium">
+          <p className="text-sm sm:text-lg text-gray-500 dark:text-gray-400 max-w-md mx-auto font-medium">
             {heroSubtitle}
           </p>
         </div>
 
         {/* Suggestions Grid */}
-        <div className="pt-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-xl mx-auto">
+        <div className="pt-3 sm:pt-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 sm:gap-3 max-w-xl mx-auto">
             {suggestions.map((s, i) => (
               <button
                 type="button"

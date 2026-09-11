@@ -8,8 +8,6 @@ import {
   loadAttachmentContent,
 } from '@/lib/attachments';
 import {
-  sanitizeHtmlToText,
-  truncateExtractedText,
   wrapDocumentContext,
   getEmptyPromptFallback,
 } from '@/lib/attachments/extract';
@@ -412,59 +410,116 @@ export class GeminiProvider implements AIProvider {
 
       const contents = processedMessages;
       let responseStream;
-      let retries = 0;
-      const maxRetries = 3;
 
-      const thinkingBudget = process.env.GEMINI_THINKING_BUDGET !== undefined
-        ? parseInt(process.env.GEMINI_THINKING_BUDGET, 10)
-        : 0;
+      const fallbackEnv = process.env.AI_FALLBACK_MODELS;
+      const configuredFallbacks = fallbackEnv
+        ? fallbackEnv.split(',').map(m => m.trim()).filter(Boolean)
+        : ['gemini-3.6-flash', 'gemini-flash-latest', 'gemini-flash-lite-latest'];
 
-      const modelConfig: Record<string, unknown> = {
-        systemInstruction: options?.systemInstruction || SYSTEM_INSTRUCTION,
-      };
+      const candidateModels = Array.from(new Set([this.model, ...configuredFallbacks]));
+      let usedModel = this.model;
+      let lastError: Error | null = null;
+      const baseSystemInstruction = options?.systemInstruction || SYSTEM_INSTRUCTION;
 
-      if (!isNaN(thinkingBudget)) {
-        modelConfig.thinkingConfig = { thinkingBudget };
-      }
-      
-      while (true) {
-        if (options?.signal?.aborted) {
-          throw new Error('AbortError');
-        }
-        try {
-          responseStream = await this.client.models.generateContentStream({
-            model: this.model,
-            contents,
-            config: modelConfig,
-          });
-          break;
-        } catch (error: unknown) {
-          const err = error as Error & { status?: number };
-          if (
-            retries < maxRetries &&
-            (err.status === 429 || err.status === 503 || err.message?.toLowerCase().includes('quota') || err.message?.toLowerCase().includes('rate limit'))
-          ) {
-            retries++;
-            // Respect abort signal during the wait
-            let timeoutId: NodeJS.Timeout;
-            await new Promise((resolve, reject) => {
-              const onAbort = () => {
-                clearTimeout(timeoutId);
-                reject(new Error('AbortError'));
-              };
-              if (options?.signal?.aborted) {
-                return onAbort();
-              }
-              options?.signal?.addEventListener('abort', onAbort);
-              timeoutId = setTimeout(() => {
-                options?.signal?.removeEventListener('abort', onAbort);
-                resolve(true);
-              }, Math.pow(2, retries - 1) * 1000);
-            });
-          } else {
-            throw err;
+      for (let mIdx = 0; mIdx < candidateModels.length; mIdx++) {
+        const currentModel = candidateModels[mIdx];
+        const hasNextModel = mIdx < candidateModels.length - 1;
+
+        const modelConfig: Record<string, unknown> = {
+          systemInstruction: baseSystemInstruction,
+        };
+
+        const thinkingBudget = process.env.GEMINI_THINKING_BUDGET !== undefined
+          ? parseInt(process.env.GEMINI_THINKING_BUDGET, 10)
+          : undefined;
+
+        if (thinkingBudget !== undefined && !isNaN(thinkingBudget)) {
+          const supportsZeroBudget =
+            currentModel.includes('2.5') ||
+            currentModel.includes('thinking') ||
+            currentModel === 'gemini-flash-latest';
+          if (thinkingBudget > 0 || supportsZeroBudget) {
+            modelConfig.thinkingConfig = { thinkingBudget };
           }
         }
+
+        let retries = 0;
+        const maxRetries = 1;
+        let modelSuccess = false;
+
+        while (!modelSuccess) {
+          if (options?.signal?.aborted) {
+            throw new Error('AbortError');
+          }
+
+          try {
+            responseStream = await this.client.models.generateContentStream({
+              model: currentModel,
+              contents,
+              config: { ...modelConfig },
+            });
+            usedModel = currentModel;
+            modelSuccess = true;
+            break;
+          } catch (error: unknown) {
+            const err = error as Error & { status?: number };
+            lastError = err;
+
+            // If 400 invalid argument was caused by thinkingConfig, strip it and retry immediately
+            if (err.status === 400 && modelConfig.thinkingConfig) {
+              delete modelConfig.thinkingConfig;
+              continue;
+            }
+
+            const isQuotaOrBusy =
+              err.status === 429 ||
+              err.status === 503 ||
+              err.status === 404 ||
+              err.message?.toLowerCase().includes('quota') ||
+              err.message?.toLowerCase().includes('rate limit') ||
+              err.message?.toLowerCase().includes('high demand') ||
+              err.message?.toLowerCase().includes('resource_exhausted');
+
+            if (isQuotaOrBusy && hasNextModel) {
+              console.warn(
+                `[GeminiProvider] Model ${currentModel} encountered ${err.status || err.message}. Falling back to next candidate model: ${candidateModels[mIdx + 1]}...`
+              );
+              break;
+            }
+
+            if (
+              retries < maxRetries &&
+              (err.status === 429 || err.status === 503 || isQuotaOrBusy)
+            ) {
+              retries++;
+              let timeoutId: NodeJS.Timeout;
+              await new Promise((resolve, reject) => {
+                const onAbort = () => {
+                  clearTimeout(timeoutId);
+                  reject(new Error('AbortError'));
+                };
+                if (options?.signal?.aborted) {
+                  return onAbort();
+                }
+                options?.signal?.addEventListener('abort', onAbort);
+                timeoutId = setTimeout(() => {
+                  options?.signal?.removeEventListener('abort', onAbort);
+                  resolve(true);
+                }, Math.pow(2, retries - 1) * 1000);
+              });
+            } else {
+              throw err;
+            }
+          }
+        }
+
+        if (modelSuccess && responseStream) {
+          break;
+        }
+      }
+
+      if (!responseStream) {
+        throw lastError || new Error('Failed to generate response stream from any candidate model.');
       }
 
       let inputTokens = undefined;
@@ -516,7 +571,7 @@ export class GeminiProvider implements AIProvider {
       yield {
         type: 'done',
         usage: { input_tokens: inputTokens, output_tokens: outputTokens },
-        metadata: { model: this.model, provider: this.name }
+        metadata: { model: usedModel, provider: this.name }
       };
 
     } catch (error: unknown) {

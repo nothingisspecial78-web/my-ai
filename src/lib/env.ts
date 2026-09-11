@@ -34,7 +34,7 @@ export function getEnv(): AppEnv {
   }
   const aiMode = rawMode as 'mock' | 'gemini';
 
-  const aiModel = process.env.AI_MODEL || 'gemini-2.5-flash';
+  const aiModel = process.env.AI_MODEL || 'gemini-3.6-flash';
   const hasGeminiKey = Boolean(process.env.GEMINI_API_KEY?.trim());
 
   if (aiMode === 'gemini' && !hasGeminiKey) {
