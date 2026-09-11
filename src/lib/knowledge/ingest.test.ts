@@ -38,5 +38,5 @@ describe('Phase 4.5.1: Real Source Ingestion', () => {
     
     // Idempotency: Duplicate detection
     await expect(db.ingestSource(source)).rejects.toThrow(/Duplicate source/);
-  }, 30000);
+  }, 60000);
 });

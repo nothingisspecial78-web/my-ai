@@ -11,6 +11,28 @@ function sanitizePromptLeakage(text: string): string {
     .replace(/\[Instructions for Assistant\]\s*/gi, '');
 }
 
+interface CachedImageData {
+  mimeType: string;
+  data: string;
+}
+
+const imageMemoryCache = new Map<string, CachedImageData>();
+const MAX_IMAGE_CACHE = 50;
+
+function getCachedImage(key: string): CachedImageData | undefined {
+  if (process.env.NODE_ENV === 'test') return undefined;
+  return imageMemoryCache.get(key);
+}
+
+function setCachedImage(key: string, data: CachedImageData): void {
+  if (process.env.NODE_ENV === 'test') return;
+  if (imageMemoryCache.size >= MAX_IMAGE_CACHE) {
+    const oldestKey = imageMemoryCache.keys().next().value;
+    if (oldestKey) imageMemoryCache.delete(oldestKey);
+  }
+  imageMemoryCache.set(key, data);
+}
+
 export class GeminiProvider implements AIProvider {
   name = 'gemini';
   private client: GoogleGenAI;
@@ -90,6 +112,20 @@ export class GeminiProvider implements AIProvider {
                   throw new Error('Invalid characters in public_id');
                 }
 
+                // Check cache first for faster response on multi-turn conversations
+                const cached = getCachedImage(publicId);
+                if (cached) {
+                  parts.push({
+                    inlineData: {
+                      mimeType: cached.mimeType,
+                      data: cached.data,
+                    },
+                  });
+                  imageCount++;
+                  successCount++;
+                  continue;
+                }
+
                 const fetchUrl = `https://res.cloudinary.com/${cloudName}/image/upload/w_800,c_limit,q_auto/v1/${publicId}`;
                 const res = await fetch(fetchUrl, { signal: options?.signal });
                 if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
@@ -133,6 +169,11 @@ export class GeminiProvider implements AIProvider {
                 }
                 const base64 = Buffer.from(totalArray).toString('base64');
 
+                setCachedImage(publicId, {
+                  mimeType: contentType,
+                  data: base64,
+                });
+
                 parts.push({
                   inlineData: {
                     mimeType: contentType,
@@ -160,7 +201,7 @@ export class GeminiProvider implements AIProvider {
 
         if (msg.content?.trim()) {
           parts.push({ text: msg.content });
-        } else if (msg.role === 'user' && parts.some(p => 'inlineData' in p)) {
+        } else if (parts.length > 0 && !allImagesFailed) {
           parts.push({ text: '[Image attached. Please analyze or describe this image.]' });
         }
 
@@ -180,6 +221,18 @@ export class GeminiProvider implements AIProvider {
       let responseStream;
       let retries = 0;
       const maxRetries = 3;
+
+      const thinkingBudget = process.env.GEMINI_THINKING_BUDGET !== undefined
+        ? parseInt(process.env.GEMINI_THINKING_BUDGET, 10)
+        : 0;
+
+      const modelConfig: Record<string, unknown> = {
+        systemInstruction: options?.systemInstruction || SYSTEM_INSTRUCTION,
+      };
+
+      if (!isNaN(thinkingBudget)) {
+        modelConfig.thinkingConfig = { thinkingBudget };
+      }
       
       while (true) {
         if (options?.signal?.aborted) {
@@ -189,9 +242,7 @@ export class GeminiProvider implements AIProvider {
           responseStream = await this.client.models.generateContentStream({
             model: this.model,
             contents,
-            config: {
-              systemInstruction: options?.systemInstruction || SYSTEM_INSTRUCTION,
-            },
+            config: modelConfig,
           });
           break;
         } catch (error: unknown) {
