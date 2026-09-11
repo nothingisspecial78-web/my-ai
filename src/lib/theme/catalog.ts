@@ -34,7 +34,7 @@ export const GENERAL_AI_THEME: ThemeDefinition = {
     badgeText: 'General AI',
   },
   welcome: {
-    heroTitle: 'Welcome to MyAI',
+    heroTitle: 'Welcome to Before You Click',
     heroSubtitle: 'How can I help you today?',
     heroIcon: 'Sparkles',
     suggestions: [

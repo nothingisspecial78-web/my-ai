@@ -36,8 +36,11 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
       <div className="w-full max-w-md space-y-8 rounded-2xl bg-white dark:bg-gray-800 p-8 shadow-sm border border-gray-100 dark:border-gray-700">
         <div className="text-center">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl overflow-hidden shadow-sm">
+            <img src="/logo.png" alt="Before You Click" className="h-full w-full object-cover" />
+          </div>
           <h2 className="text-3xl font-semibold tracking-tight text-gray-900 dark:text-white">Welcome back</h2>
-          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Sign in to your MyAI account</p>
+          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Sign in to your Before You Click account</p>
         </div>
 
         <form className="mt-8 space-y-6" onSubmit={handleLogin}>

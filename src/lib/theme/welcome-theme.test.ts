@@ -18,7 +18,7 @@ describe('Phase 5.4: Theme-Aware Welcome Screen', () => {
     const expectedWelcomeData = [
       {
         theme: GENERAL_AI_THEME,
-        heroTitle: 'Welcome to MyAI',
+        heroTitle: 'Welcome to Before You Click',
         heroSubtitle: 'How can I help you today?',
         heroIcon: 'Sparkles',
         firstSuggestion: 'Summarize this document',

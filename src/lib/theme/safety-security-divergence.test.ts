@@ -154,7 +154,7 @@ describe('Phase 5.7: Safety vs Security UI Divergence', () => {
   // 11. General AI behavior remains unchanged
   it('11. General AI behavior remains unchanged', () => {
     expect(GENERAL_AI_THEME.slug).toBe('general');
-    expect(GENERAL_AI_THEME.welcome.heroTitle).toBe('Welcome to MyAI');
+    expect(GENERAL_AI_THEME.welcome.heroTitle).toBe('Welcome to Before You Click');
     expect(GENERAL_AI_THEME.archetype).toBe('visual_prompt');
     expect(resolveThemeSync(null).slug).toBe('general');
     expect(resolveThemeSync(undefined).slug).toBe('general');

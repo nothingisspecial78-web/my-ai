@@ -1,6 +1,6 @@
-# MyAI
+# Before You Click
 
-MyAI is a modern personal AI assistant, built with Next.js, React, Tailwind CSS, shadcn/ui, and Supabase.
+Before You Click is an intelligent AI assistant that helps you think, understand, create, and stay safer before you click. Built with Next.js, React, Tailwind CSS, shadcn/ui, Supabase, and Google Gemini.
 
 ## Architecture & Clean Separation
 
@@ -45,7 +45,7 @@ The database schema uses PostgreSQL with strict Row Level Security (RLS).
 3. This script will automatically create the tables, indexes, triggers, and secure RLS policies.
 
 ### 4. Authentication Setup
-MyAI uses Supabase Auth.
+Before You Click uses Supabase Auth.
 - Users can sign up via `/signup`.
 - The database triggers an automatic profile creation on user signup.
 - The Next.js middleware in `src/middleware.ts` protects private routes (like `/chat`) and redirects unauthenticated users to `/login`.

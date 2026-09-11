@@ -248,11 +248,11 @@ export function Sidebar({ initialConversations = [], initialCursor = null }: { i
       
       {/* Header */}
       <div className="p-4 pb-2 space-y-4">
-        <Link href="/chat" className="flex items-center gap-2 mb-2 ml-1">
-          <div className="flex h-7 w-7 items-center justify-center rounded bg-blue-600 text-white">
-            <SparklesIcon />
+        <Link href="/chat" className="flex items-center gap-2.5 mb-2 ml-1" aria-label="Before You Click - Return to chat">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg overflow-hidden shrink-0 shadow-sm">
+            <img src="/logo.png" alt="Before You Click" className="h-full w-full object-cover" />
           </div>
-          <span className="font-semibold text-lg tracking-tight text-gray-900 dark:text-white">MyAI</span>
+          <span className="font-semibold text-base sm:text-lg tracking-tight text-gray-900 dark:text-white truncate">Before You Click</span>
         </Link>
         
         <button
@@ -488,10 +488,10 @@ export function Sidebar({ initialConversations = [], initialCursor = null }: { i
           <Menu size={24} aria-hidden="true" />
         </button>
         <div className="flex-1 text-center font-medium text-gray-900 dark:text-white flex items-center justify-center gap-2">
-          <div className="flex h-5 w-5 items-center justify-center rounded bg-blue-600 text-white" aria-hidden="true">
-            <SparklesIcon />
+          <div className="flex h-6 w-6 items-center justify-center rounded-lg overflow-hidden shrink-0 shadow-sm" aria-hidden="true">
+            <img src="/logo.png" alt="" className="h-full w-full object-cover" />
           </div>
-          MyAI
+          <span className="truncate">Before You Click</span>
         </div>
         <div className="w-10" />
       </div>
@@ -523,13 +523,5 @@ export function Sidebar({ initialConversations = [], initialCursor = null }: { i
 
       <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
     </>
-  );
-}
-
-function SparklesIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <path d="M12 2L14.645 9.355L22 12L14.645 14.645L12 22L9.355 14.645L2 12L9.355 9.355L12 2Z" fill="currentColor"/>
-    </svg>
   );
 }

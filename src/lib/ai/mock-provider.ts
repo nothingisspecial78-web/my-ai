@@ -19,7 +19,7 @@ export class MockProvider implements AIProvider {
       return;
     }
 
-    const words = 'This is a mock response from the premium MyAI assistant. Actual AI integration is running in Mock Mode.'.split(' ');
+    const words = 'This is a mock response from the premium Before You Click assistant. Actual AI integration is running in Mock Mode.'.split(' ');
     
     for (const word of words) {
       if (options?.signal?.aborted) {

@@ -202,7 +202,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
               <div role="tabpanel" id="panel-appearance" aria-labelledby="tab-appearance" className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
                 <div>
                   <h3 className="text-lg font-medium text-gray-900 dark:text-white">Appearance</h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Customize how MyAI looks.</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Customize how Before You Click looks.</p>
                 </div>
                 
                 <div className="space-y-3" role="radiogroup" aria-label="Theme preference">
@@ -240,7 +240,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             {activeTab === 'about' && (
               <div role="tabpanel" id="panel-about" aria-labelledby="tab-about" className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
                 <div>
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white">About MyAI</h3>
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white">About Before You Click</h3>
                   <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Version and system information.</p>
                 </div>
                 
@@ -253,7 +253,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
                 <div className="pt-4 border-t border-gray-200 dark:border-gray-800">
                   <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
-                    MyAI is your personal AI assistant for learning, creating, and exploring. 
+                    Before You Click is an intelligent AI assistant that helps you think, understand, create, and stay safer before you click. 
                     AI responses may contain inaccuracies. Always verify important information.
                   </p>
                 </div>

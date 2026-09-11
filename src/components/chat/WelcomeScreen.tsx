@@ -78,7 +78,7 @@ export function WelcomeScreen({ onSuggestionClick, disabled, theme }: WelcomeScr
   const activeTheme = theme || GENERAL_AI_THEME;
   const welcomeConfig = activeTheme.welcome || GENERAL_AI_THEME.welcome;
 
-  const heroTitle = welcomeConfig.heroTitle || activeTheme.name || 'Welcome to MyAI';
+  const heroTitle = welcomeConfig.heroTitle || activeTheme.name || 'Welcome to Before You Click';
   const heroSubtitle = welcomeConfig.heroSubtitle || activeTheme.description || 'How can I help you today?';
   const heroIconName = welcomeConfig.heroIcon || activeTheme.icon || 'Sparkles';
   const suggestions = welcomeConfig.suggestions && welcomeConfig.suggestions.length > 0

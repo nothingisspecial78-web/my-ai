@@ -521,7 +521,7 @@ async function optimizeImageForUpload(file: File): Promise<File | Blob> {
           onKeyDown={handleKeyDown}
           disabled={disabled}
           aria-label="Message input"
-          placeholder="Message MyAI..."
+          placeholder="Message Before You Click..."
           className="max-h-[200px] min-h-[44px] w-full resize-none bg-transparent px-4 py-3 text-[16px] leading-relaxed text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none disabled:cursor-not-allowed scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-gray-700"
           rows={1}
         />
@@ -634,7 +634,7 @@ async function optimizeImageForUpload(file: File): Promise<File | Blob> {
         </div>
       </div>
       <div className="mt-3 text-center text-xs text-gray-400 dark:text-gray-500">
-        MyAI can make mistakes. Check important info.
+        Before You Click can make mistakes. Check important info.
       </div>
     </div>
   );

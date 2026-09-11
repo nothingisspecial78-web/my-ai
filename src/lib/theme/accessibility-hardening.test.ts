@@ -136,7 +136,7 @@ describe('Phase 5.8: Mobile + Accessibility Hardening Regression Tests', () => {
     expect(composerFile).toContain('h-10 w-10 sm:h-9 sm:w-9');
     expect(composerFile).toContain('h-10 sm:h-9');
     expect(composerFile).toContain('type="file"');
-    expect(composerFile).toContain('placeholder="Message MyAI..."');
+    expect(composerFile).toContain('placeholder="Message Before You Click..."');
 
     // Remove attachment button is accessible on touch devices
     expect(composerFile).toContain('opacity-100 sm:opacity-0 sm:group-hover:opacity-100');
