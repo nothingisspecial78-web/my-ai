@@ -118,4 +118,96 @@ describe('resolveThemeInstruction', () => {
     expect(filtered.some(t => t.slug === 'safety-checkup')).toBe(true);
     expect(filtered.some(t => t.slug === 'security-checkup')).toBe(true);
   });
+
+  it('9. resolves canonical null/undefined and legacy fallbacks ("general", legacy UUID) to GENERAL_AI_THEME', async () => {
+    const { resolveAuthorizedTheme, buildThemeInstruction } = await import('./resolver');
+    const { GENERAL_AI_THEME } = await import('./catalog');
+
+    // Canonical representation for General AI in conversations and database is null / undefined
+    const fromNull = await resolveAuthorizedTheme(null);
+    const fromUndefined = await resolveAuthorizedTheme(undefined);
+
+    // Legacy fallbacks accepted only at the resolver boundary
+    const fromGeneralSlug = await resolveAuthorizedTheme('general');
+    const fromLegacyId = await resolveAuthorizedTheme('11111111-1111-1111-1111-111111111111');
+
+    expect(fromNull).toEqual(GENERAL_AI_THEME);
+    expect(fromUndefined).toEqual(GENERAL_AI_THEME);
+    expect(fromGeneralSlug).toEqual(GENERAL_AI_THEME);
+    expect(fromLegacyId).toEqual(GENERAL_AI_THEME);
+
+    // Database should never be queried for canonical General AI or legacy fallbacks
+    expect(database.getThemeById).not.toHaveBeenCalled();
+
+    // General AI instruction must be null so Gemini uses standard system prompt
+    expect(buildThemeInstruction(fromNull)).toBeNull();
+  });
+
+  it('10. themeRegistry.getAllActiveDefinitions() returns strictly the 6 active themes and excludes dormant themes', async () => {
+    const { themeRegistry } = await import('./registry');
+
+    const activeDefinitions = themeRegistry.getAllActiveDefinitions();
+    expect(activeDefinitions).toHaveLength(6);
+
+    const activeSlugs = activeDefinitions.map(d => d.slug);
+    expect(activeSlugs).toEqual([
+      'general',
+      'mathematics',
+      'programming',
+      'safety-checkup',
+      'security-checkup',
+      'study',
+    ]);
+
+    // Ensure all 6 active definitions have complete visual and welcome configs
+    for (const def of activeDefinitions) {
+      expect(def.enabled).toBe(true);
+      expect(def.isSystem).toBe(true);
+      expect(def.visual).toBeDefined();
+      expect(def.visual.themeAttribute).toBeTruthy();
+      expect(def.visual.accentColor).toBeTruthy();
+      expect(def.welcome).toBeDefined();
+      expect(def.welcome.heroTitle).toBeTruthy();
+    }
+
+    // Tibb al-Nabi is NOT in active definitions
+    expect(activeSlugs).not.toContain('tibb-al-nabi');
+  });
+
+  it('11. preserves dormant Tibb al-Nabi in code and registry without exposing it as an active system theme', async () => {
+    const { themeRegistry } = await import('./registry');
+
+    const tibbDef = themeRegistry.getDefinition('tibb-al-nabi');
+    expect(tibbDef).toBeDefined();
+    expect(tibbDef?.enabled).toBe(false);
+    expect(tibbDef?.isSystem).toBe(false);
+
+    const tibbEngine = themeRegistry.getEngine('tibb-al-nabi');
+    expect(tibbEngine).toBeDefined();
+  });
+
+  it('12. resolveAuthorizedTheme merges registered canonical metadata with database overrides', async () => {
+    const { resolveAuthorizedTheme } = await import('./resolver');
+
+    vi.mocked(database.getThemeById).mockResolvedValue(mockTheme({
+      id: '22222222-2222-2222-2222-222222222222',
+      name: 'Custom Mathematics',
+      slug: 'mathematics',
+      icon: 'Calculator',
+      enabled: true,
+      is_system: true,
+      config: {
+        instructions: 'Custom DB Math Instructions',
+        rules: ['Custom Rule 1'],
+      } as unknown as DBTheme['config'],
+    }));
+
+    const mathTheme = await resolveAuthorizedTheme('22222222-2222-2222-2222-222222222222');
+    expect(mathTheme.slug).toBe('mathematics');
+    expect(mathTheme.instructions).toBe('Custom DB Math Instructions');
+    expect(mathTheme.rules).toEqual(['Custom Rule 1']);
+    // Inherits static visual and welcome metadata from canonical definition
+    expect(mathTheme.visual.accentColor).toBe('#0d9488');
+    expect(mathTheme.welcome.heroTitle).toBe('Mathematics Assistant');
+  });
 });
