@@ -9,6 +9,9 @@ import { useChatPreferences } from '@/hooks/use-chat-preferences';
 import { extractConversationTitle } from '@/lib/utilities/title';
 import { CANONICAL_THEME_MAP, GENERAL_AI_THEME } from '@/lib/theme/catalog';
 
+import { Attachment } from '@/lib/ai/types';
+import { Json } from '@/types/database';
+
 export default function ChatEmptyPage() {
   const router = useRouter();
   const [isNavigating, setIsNavigating] = useState(false);
@@ -17,13 +20,13 @@ export default function ChatEmptyPage() {
 
   const activeTheme = (selectedThemeId && CANONICAL_THEME_MAP[selectedThemeId]) || GENERAL_AI_THEME;
 
-  const handleSend = async (text: string) => {
-    if (isNavigating) return;
+  const handleSend = async (text: string, attachments?: Attachment[]) => {
+    if ((!text.trim() && (!attachments || attachments.length === 0)) || isNavigating) return;
     setIsNavigating(true);
     try {
       const { createConversation, createMessage } = await import('@/lib/database');
       
-      const title = extractConversationTitle(text);
+      const title = text.trim() ? extractConversationTitle(text) : 'Image Analysis';
       
       const newConvo = await createConversation(title, selectedThemeId || undefined);
       if (newConvo) {
@@ -31,7 +34,7 @@ export default function ChatEmptyPage() {
           conversation_id: newConvo.id,
           role: 'user',
           content: text,
-          metadata: {},
+          metadata: attachments && attachments.length > 0 ? { attachments: attachments as unknown as Json } : {},
         });
         
         router.push(`/chat/${newConvo.id}`);

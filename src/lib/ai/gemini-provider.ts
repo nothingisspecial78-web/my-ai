@@ -90,7 +90,7 @@ export class GeminiProvider implements AIProvider {
                   throw new Error('Invalid characters in public_id');
                 }
 
-                const fetchUrl = `https://res.cloudinary.com/${cloudName}/image/upload/w_800,c_limit,q_auto,f_auto/v1/${publicId}`;
+                const fetchUrl = `https://res.cloudinary.com/${cloudName}/image/upload/w_800,c_limit,q_auto/v1/${publicId}`;
                 const res = await fetch(fetchUrl, { signal: options?.signal });
                 if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
 
@@ -160,6 +160,8 @@ export class GeminiProvider implements AIProvider {
 
         if (msg.content?.trim()) {
           parts.push({ text: msg.content });
+        } else if (msg.role === 'user' && parts.some(p => 'inlineData' in p)) {
+          parts.push({ text: '[Image attached. Please analyze or describe this image.]' });
         }
 
         if (i === messages.length - 1 && !msg.content?.trim() && allImagesFailed) {

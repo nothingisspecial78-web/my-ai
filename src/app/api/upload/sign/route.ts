@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { createClient } from '@/lib/supabase/server';
+import { rateLimiter } from '@/lib/api/rate-limiter';
 
-export async function POST(req: Request) {
+export async function POST() {
   try {
     // Authenticate user
     const supabase = await createClient();
@@ -10,6 +11,20 @@ export async function POST(req: Request) {
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Rate limiting check
+    const rateCheck = await rateLimiter.check(user.id);
+    if (!rateCheck.allowed) {
+      return NextResponse.json(
+        { error: 'Too many requests. Please wait a moment.' },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(rateCheck.retryAfter),
+          },
+        }
+      );
     }
 
     // Read config

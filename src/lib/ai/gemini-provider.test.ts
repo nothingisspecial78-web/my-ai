@@ -113,7 +113,7 @@ describe('GeminiProvider', () => {
     }
 
     expect(global.fetch).toHaveBeenCalledTimes(1);
-    expect(global.fetch).toHaveBeenCalledWith('https://res.cloudinary.com/testcloud/image/upload/w_800,c_limit,q_auto,f_auto/v1/my_ai_uploads/xyz.jpg', expect.any(Object));
+    expect(global.fetch).toHaveBeenCalledWith('https://res.cloudinary.com/testcloud/image/upload/w_800,c_limit,q_auto/v1/my_ai_uploads/xyz.jpg', expect.any(Object));
     
     expect(mockGenerateContentStream).toHaveBeenCalledWith(expect.objectContaining({
       contents: [{ role: 'user', parts: [
@@ -141,7 +141,8 @@ describe('GeminiProvider', () => {
 
     expect(mockGenerateContentStream).toHaveBeenCalledWith(expect.objectContaining({
       contents: [{ role: 'user', parts: [
-        { inlineData: { mimeType: 'image/png', data: Buffer.from([1, 2, 3]).toString('base64') } }
+        { inlineData: { mimeType: 'image/png', data: Buffer.from([1, 2, 3]).toString('base64') } },
+        { text: '[Image attached. Please analyze or describe this image.]' }
       ] }]
     }));
   });
@@ -413,5 +414,80 @@ describe('GeminiProvider', () => {
 
     expect(result).not.toContain('[Safety Analysis Guidance Context]');
     expect(result).toBe('Clean assessment result.');
+  });
+
+  it('22. Cloudinary URL requested by gemini provider uses w_800,c_limit,q_auto and NOT f_auto', async () => {
+    const messages: Message[] = [{
+      id: '1', role: 'user', content: 'check this', created_at: new Date(), conversation_id: '1',
+      metadata: { attachments: [{ type: 'image', url: 'https://res.cloudinary.com/testcloud/image/upload/v1/my_ai_uploads/photo.webp', public_id: 'my_ai_uploads/photo.webp' }] }
+    }];
+
+    (global.fetch as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(createMockResponse({
+      contentType: 'image/webp',
+      bodyChunks: [new Uint8Array([82, 73, 70, 70])]
+    }));
+
+    const generator = provider.generateStream(messages);
+    for await (const chunk of generator) {
+      void chunk;
+    }
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    const calledUrl = (global.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
+    expect(calledUrl).toContain('w_800,c_limit,q_auto');
+    expect(calledUrl).not.toContain('f_auto');
+    expect(calledUrl).toBe('https://res.cloudinary.com/testcloud/image/upload/w_800,c_limit,q_auto/v1/my_ai_uploads/photo.webp');
+  });
+
+  it('23. User message with text does NOT inject fallback prompt', async () => {
+    const messages: Message[] = [{
+      id: '1', role: 'user', content: 'Explain this diagram', created_at: new Date(), conversation_id: '1',
+      metadata: { attachments: [{ type: 'image', url: 'https://res.cloudinary.com/testcloud/image/upload/v1/my_ai_uploads/diagram.png', public_id: 'my_ai_uploads/diagram.png' }] }
+    }];
+
+    (global.fetch as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(createMockResponse({
+      contentType: 'image/png',
+      bodyChunks: [new Uint8Array([1, 2, 3])]
+    }));
+
+    const generator = provider.generateStream(messages);
+    for await (const chunk of generator) {
+      void chunk;
+    }
+
+    const callArgs = mockGenerateContentStream.mock.calls[0][0];
+    const parts = callArgs.contents[0].parts;
+    expect(parts.some((p: { text?: string }) => p.text === 'Explain this diagram')).toBe(true);
+    expect(parts.some((p: { text?: string }) => p.text === '[Image attached. Please analyze or describe this image.]')).toBe(false);
+  });
+
+  it('24. Historical image-only turn generates fallback prompt', async () => {
+    const messages: Message[] = [
+      {
+        id: '1', role: 'user', content: '', created_at: new Date(), conversation_id: '1',
+        metadata: { attachments: [{ type: 'image', url: 'https://res.cloudinary.com/testcloud/image/upload/v1/my_ai_uploads/old.png', public_id: 'my_ai_uploads/old.png' }] }
+      },
+      {
+        id: '2', role: 'assistant', content: 'I see a graph.', created_at: new Date(), conversation_id: '1'
+      },
+      {
+        id: '3', role: 'user', content: 'What is the trend?', created_at: new Date(), conversation_id: '1'
+      }
+    ];
+
+    (global.fetch as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(createMockResponse({
+      contentType: 'image/png',
+      bodyChunks: [new Uint8Array([1, 2, 3])]
+    }));
+
+    const generator = provider.generateStream(messages);
+    for await (const chunk of generator) {
+      void chunk;
+    }
+
+    const callArgs = mockGenerateContentStream.mock.calls[0][0];
+    const userTurn1 = callArgs.contents[0];
+    expect(userTurn1.role).toBe('user');
+    expect(userTurn1.parts.some((p: { text?: string }) => p.text === '[Image attached. Please analyze or describe this image.]')).toBe(true);
   });
 });
