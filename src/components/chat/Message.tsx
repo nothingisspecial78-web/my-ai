@@ -76,7 +76,7 @@ function MessageComponent({ id, role, content, isLast, onRegenerate, timestamp, 
             </div>
           )}
           {content.trim() && (
-            <div className="bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-5 py-3 rounded-2xl rounded-br-sm shadow-sm">
+            <div className="bg-[var(--theme-bubble-user)] text-[var(--theme-bubble-user-text)] px-5 py-3 rounded-2xl rounded-br-sm shadow-sm">
               <div className="whitespace-pre-wrap break-words text-[15px] leading-relaxed">
                 {content}
               </div>
@@ -114,27 +114,27 @@ function MessageComponent({ id, role, content, isLast, onRegenerate, timestamp, 
     <div className="group w-full py-6 px-4 flex justify-start">
       <div className="w-full flex gap-4">
         {/* Avatar */}
-        <div className="shrink-0 flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white shadow-sm mt-1">
+        <div className="shrink-0 flex h-8 w-8 items-center justify-center rounded-lg bg-theme-avatar-bg text-theme-avatar-fg shadow-sm mt-1">
           <SparklesIcon />
         </div>
 
         {/* Content Box */}
         <div className="flex-1 min-w-0">
-          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-5 shadow-sm">
+          <div className="bg-[var(--theme-card)] border border-[var(--theme-border)] rounded-2xl p-5 shadow-sm transition-colors">
             {safetyReport && (
               <SafetyAnalysisCard report={safetyReport} />
             )}
             {isThinking ? (
               <div className="flex items-center gap-1.5 h-6 opacity-70">
-                <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse [animation-delay:-0.3s]"></div>
-                <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse [animation-delay:-0.15s]"></div>
-                <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div>
+                <div className="w-2 h-2 rounded-full bg-theme-accent animate-pulse [animation-delay:-0.3s]"></div>
+                <div className="w-2 h-2 rounded-full bg-theme-accent animate-pulse [animation-delay:-0.15s]"></div>
+                <div className="w-2 h-2 rounded-full bg-theme-accent animate-pulse"></div>
               </div>
             ) : (
               <div className="prose prose-slate dark:prose-invert max-w-none break-words
                 prose-p:leading-relaxed prose-pre:p-0 prose-pre:bg-transparent
                 prose-code:bg-gray-100 dark:prose-code:bg-gray-800 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md prose-code:font-normal
-                prose-pre:border prose-pre:border-gray-200 dark:prose-pre:border-gray-800 prose-pre:rounded-xl overflow-hidden text-[15px] min-h-[1.5rem]"
+                prose-pre:border prose-pre:border-[var(--theme-border)] prose-pre:rounded-xl overflow-hidden text-[15px] min-h-[1.5rem]"
               >
                 <ReactMarkdown 
                   remarkPlugins={[remarkGfm]}
@@ -159,18 +159,18 @@ function MessageComponent({ id, role, content, isLast, onRegenerate, timestamp, 
 
                       return (
                         <div className="relative my-4 group/code">
-                          <div className="flex items-center justify-between px-4 py-2 bg-gray-50 dark:bg-gray-950 border-b border-gray-200 dark:border-gray-800 text-xs text-gray-500">
+                          <div className="flex items-center justify-between px-4 py-2 bg-[var(--theme-card-muted)] border-b border-[var(--theme-border)] text-xs text-gray-500">
                             <span className="uppercase font-semibold tracking-wider">{language || 'Code'}</span>
                             <button
                               onClick={() => handleCopyCode(codeString)}
-                              className="flex items-center gap-1.5 hover:text-gray-900 dark:hover:text-gray-300 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded px-1"
+                              className="flex items-center gap-1.5 hover:text-gray-900 dark:hover:text-gray-300 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-theme-composer-focus rounded px-1"
                               aria-label="Copy code"
                             >
                               <Copy size={14} />
                               <span>Copy</span>
                             </button>
                           </div>
-                          <pre {...props} className="p-4 overflow-x-auto bg-gray-50 dark:bg-gray-950 text-sm">
+                          <pre {...props} className="p-4 overflow-x-auto bg-[var(--theme-card-muted)] text-sm">
                             {children}
                           </pre>
                         </div>
@@ -256,8 +256,8 @@ function ToolbarButton({
       title={label}
       aria-label={label}
       className={cn(
-        "flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 text-xs font-medium",
-        active && "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20"
+        "flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-theme-composer-focus text-xs font-medium",
+        active && "text-theme-accent bg-theme-subtle"
       )}
     >
       <Icon size={14} />

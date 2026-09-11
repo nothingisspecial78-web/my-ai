@@ -7,12 +7,15 @@ import { WelcomeScreen } from '@/components/chat/WelcomeScreen';
 import { ThemeSelector } from '@/components/chat/ThemeSelector';
 import { useChatPreferences } from '@/hooks/use-chat-preferences';
 import { extractConversationTitle } from '@/lib/utilities/title';
+import { CANONICAL_THEME_MAP } from '@/lib/theme/catalog';
 
 export default function ChatEmptyPage() {
   const router = useRouter();
   const [isNavigating, setIsNavigating] = useState(false);
   const [selectedThemeId, setSelectedThemeId] = useState<string | null>(null);
   const { preferences } = useChatPreferences();
+
+  const activeThemeSlug = (selectedThemeId && CANONICAL_THEME_MAP[selectedThemeId]?.slug) || 'general';
 
   const handleSend = async (text: string) => {
     if (isNavigating) return;
@@ -41,12 +44,12 @@ export default function ChatEmptyPage() {
   };
 
   return (
-    <div className="flex h-full w-full flex-col relative">
+    <div data-theme={activeThemeSlug} className="flex h-full w-full flex-col relative bg-[var(--theme-bg)] transition-colors">
       <div className="flex-1 overflow-y-auto w-full">
         <WelcomeScreen onSuggestionClick={handleSend} disabled={isNavigating} />
       </div>
 
-      <div className="mt-auto w-full bg-gradient-to-t from-white via-white to-transparent dark:from-gray-900 dark:via-gray-900 dark:to-transparent">
+      <div className="mt-auto w-full bg-gradient-to-t from-[var(--theme-bg)] via-[var(--theme-bg)] to-transparent">
         <div className="max-w-3xl mx-auto px-4 pb-2 flex justify-start">
           <ThemeSelector 
             selectedThemeId={selectedThemeId} 

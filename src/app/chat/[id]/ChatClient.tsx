@@ -11,6 +11,7 @@ import { createMessage, replaceAssistantMessage, updateConversation } from '@/li
 import { AIStreamEvent, Attachment } from '@/lib/ai/types';
 import { useChatPreferences } from '@/hooks/use-chat-preferences';
 import { extractConversationTitle } from '@/lib/utilities/title';
+import { ThemeDefinition } from '@/lib/theme/types';
 
 type DBConversation = Database['public']['Tables']['conversations']['Row'];
 type DBMessage = Database['public']['Tables']['messages']['Row'];
@@ -18,9 +19,10 @@ type DBMessage = Database['public']['Tables']['messages']['Row'];
 interface ChatClientProps {
   conversation: DBConversation;
   initialMessages: DBMessage[];
+  theme?: ThemeDefinition;
 }
 
-export function ChatClient({ conversation, initialMessages }: ChatClientProps) {
+export function ChatClient({ conversation, initialMessages, theme }: ChatClientProps) {
   const router = useRouter();
   const [messages, setMessages] = useState<DBMessage[]>(initialMessages);
   const [isSending, setIsSending] = useState(false);
@@ -399,7 +401,7 @@ export function ChatClient({ conversation, initialMessages }: ChatClientProps) {
   };
 
   return (
-    <div className="flex h-full w-full flex-col relative">
+    <div data-theme={theme?.slug || 'general'} className="flex h-full w-full flex-col relative bg-[var(--theme-bg)] transition-colors">
       <header className="sticky top-0 z-10 flex h-14 items-center justify-between bg-white/95 dark:bg-gray-900/95 px-4 backdrop-blur-md hidden md:flex">
         <div className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 px-2 py-1.5 rounded-lg transition-colors">
           <h1 className="text-[15px] font-semibold text-gray-900 dark:text-gray-100 truncate max-w-md flex items-center gap-2">
@@ -479,7 +481,7 @@ export function ChatClient({ conversation, initialMessages }: ChatClientProps) {
         )}
       </div>
 
-      <div className="w-full bg-gradient-to-t from-white via-white to-transparent dark:from-gray-900 dark:via-gray-900 dark:to-transparent mt-auto">
+      <div className="w-full bg-gradient-to-t from-[var(--theme-bg)] via-[var(--theme-bg)] to-transparent mt-auto">
         <ChatComposer 
           onSend={handleSend} 
           disabled={isSending}

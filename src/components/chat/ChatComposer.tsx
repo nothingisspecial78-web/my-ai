@@ -166,7 +166,7 @@ export function ChatComposer({ onSend, disabled, enterToSend = true }: ChatCompo
   return (
     <div className="relative w-full max-w-4xl mx-auto px-4 pb-6 pt-2">
       <div className={cn(
-        "relative flex flex-col w-full rounded-[24px] border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-[0_4px_24px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)] transition-all focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500/50 focus-within:shadow-[0_8px_32px_rgba(0,0,0,0.08)] dark:focus-within:shadow-[0_8px_32px_rgba(0,0,0,0.3)] p-2",
+        "relative flex flex-col w-full rounded-[24px] border border-[var(--theme-composer-border)] bg-[var(--theme-card)] shadow-[0_4px_24px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)] transition-all focus-within:ring-2 focus-within:ring-theme-composer-focus focus-within:border-theme-border focus-within:shadow-[0_8px_32px_rgba(0,0,0,0.08)] dark:focus-within:shadow-[0_8px_32px_rgba(0,0,0,0.3)] p-2",
         disabled && "opacity-60 cursor-not-allowed"
       )}>
         
@@ -188,7 +188,7 @@ export function ChatComposer({ onSend, disabled, enterToSend = true }: ChatCompo
             
             {isUploading && (
               <div className="w-16 h-16 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex flex-col items-center justify-center shrink-0">
-                <Loader2 size={18} className="animate-spin text-blue-500 mb-1" />
+                <Loader2 size={18} className="animate-spin text-theme-accent mb-1" />
               </div>
             )}
 
@@ -218,14 +218,14 @@ export function ChatComposer({ onSend, disabled, enterToSend = true }: ChatCompo
         {/* Bottom Toolbar */}
         <div className="flex items-center justify-between px-2 pb-1 pt-2">
           <div className="flex items-center gap-2">
-            <label className={cn("flex h-9 w-9 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300 transition-colors focus-within:ring-2 focus-within:ring-blue-500 cursor-pointer", isUploading && "opacity-50 pointer-events-none")}>
+            <label className={cn("flex h-9 w-9 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300 transition-colors focus-within:ring-2 focus-within:ring-theme-composer-focus cursor-pointer", isUploading && "opacity-50 pointer-events-none")}>
               <input ref={fileInputRef} type="file" className="hidden" aria-label="Upload file or photo" accept="image/jpeg,image/png,image/webp" onChange={handleFileUpload} disabled={isUploading} />
               <Plus size={18} strokeWidth={2.5} />
             </label>
             <button 
               type="button"
               aria-label="Search"
-              className="flex h-9 items-center gap-1.5 rounded-full border border-gray-200 dark:border-gray-700/60 px-3 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-xs font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+              className="flex h-9 items-center gap-1.5 rounded-full border border-gray-200 dark:border-gray-700/60 px-3 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-xs font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-theme-composer-focus"
             >
               <Search size={14} />
               Search
@@ -246,9 +246,9 @@ export function ChatComposer({ onSend, disabled, enterToSend = true }: ChatCompo
               disabled={isSendDisabled}
               aria-label="Send message"
               className={cn(
-                "flex h-9 w-9 items-center justify-center rounded-full text-white transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900",
+                "flex h-9 w-9 items-center justify-center rounded-full text-white transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-theme-composer-focus focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900",
                 !isSendDisabled
-                  ? "bg-blue-600 hover:bg-blue-700 shadow-sm" 
+                  ? "bg-theme-accent hover:opacity-90 shadow-sm"
                   : "bg-gray-200 dark:bg-gray-700 text-gray-400 cursor-not-allowed"
               )}
             >
