@@ -102,15 +102,16 @@ export async function POST(req: NextRequest) {
     // 7.5 Load Theme and Execute Deterministic Engine
     let systemInstruction: string | null = null;
     let safetyReport: import('@/lib/safety/types').SafetyReport | null = null;
+    let activeTheme: import('@/lib/theme/types').ThemeDefinition | null = null;
 
     if (conversation.theme_id) {
       const { resolveAuthorizedTheme, buildThemeInstruction } = await import('@/lib/theme/resolver');
       const { processThemeRequest } = await import('@/lib/theme/processor');
       
-      const theme = await resolveAuthorizedTheme(conversation.theme_id);
-      systemInstruction = buildThemeInstruction(theme);
+      activeTheme = await resolveAuthorizedTheme(conversation.theme_id);
+      systemInstruction = buildThemeInstruction(activeTheme);
 
-      if (theme) {
+      if (activeTheme) {
         // Find the most recent user message as the primary input
         let lastUserMessage = null;
         for (let i = messagesToUse.length - 1; i >= 0; i--) {
@@ -121,7 +122,7 @@ export async function POST(req: NextRequest) {
         }
         
         const input = lastUserMessage?.content || '';
-        const engineResult = await processThemeRequest(theme, input, messagesToUse as unknown as Message[]);
+        const engineResult = await processThemeRequest(activeTheme, input, messagesToUse as unknown as Message[]);
         
         if (engineResult) {
           const contextAddition = engineResult.explanationContext;
@@ -129,7 +130,7 @@ export async function POST(req: NextRequest) {
             ? `${systemInstruction}\n\n${contextAddition}`
             : contextAddition;
 
-          if (['safety-checkup', 'security-checkup', 'safety'].includes(theme.slug) && engineResult.result) {
+          if (['safety-checkup', 'security-checkup', 'safety'].includes(activeTheme.slug) && engineResult.result) {
             safetyReport = engineResult.result as import('@/lib/safety/types').SafetyReport;
             try {
               const { SafetyRepository } = await import('@/lib/safety/repository');
@@ -213,12 +214,13 @@ export async function POST(req: NextRequest) {
               break;
             }
             
-            // Attach safetyReport to done metadata so client can render structured card
+            // Attach safetyReport and themeSlug to done metadata so client can render structured card
             if (event.type === 'done' && safetyReport) {
               event.metadata = {
                 model: event.metadata?.model || 'ai-model',
                 provider: event.metadata?.provider || 'ai-provider',
                 ...event.metadata,
+                themeSlug: activeTheme?.slug || 'safety-checkup',
                 safetyReport,
               };
             }
@@ -252,7 +254,8 @@ export async function POST(req: NextRequest) {
                 usage: { input_tokens: 0, output_tokens: 0 },
                 metadata: {
                   model: 'deterministic-fallback',
-                  provider: 'SafetyCheckup',
+                  provider: activeTheme?.slug === 'security-checkup' ? 'SecurityCheckup' : 'SafetyCheckup',
+                  themeSlug: activeTheme?.slug || 'safety-checkup',
                   safetyReport,
                 },
               }) + '\n'));

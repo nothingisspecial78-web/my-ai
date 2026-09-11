@@ -459,6 +459,7 @@ export function ChatClient({ conversation, initialMessages, theme }: ChatClientP
                 showTimestamp={preferences.showTimestamps}
                 isThinking={isThinking && msg.role === 'assistant' && msg.content === ''}
                 metadata={(msg.metadata as Record<string, unknown>) || undefined}
+                theme={theme}
               />
             ))}
             {errorMessage && (

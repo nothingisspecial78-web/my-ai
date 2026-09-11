@@ -14,16 +14,25 @@ import {
 } from 'lucide-react';
 import { SafetyReport, RiskLevel } from '@/lib/safety/types';
 import { cn } from '@/lib/utils';
+import { ThemeDefinition } from '@/lib/theme/types';
+import { getThemePresentation } from '@/lib/theme/catalog';
 
 interface SafetyAnalysisCardProps {
   report: SafetyReport;
   className?: string;
+  themeSlug?: string;
+  theme?: ThemeDefinition;
 }
 
-export function SafetyAnalysisCard({ report, className }: SafetyAnalysisCardProps) {
+export function SafetyAnalysisCard({ report, className, themeSlug, theme }: SafetyAnalysisCardProps) {
   const [isExpanded, setIsExpanded] = React.useState(true);
 
   if (!report) return null;
+
+  const activeSlug = themeSlug || theme?.slug;
+  const isSecurity = activeSlug === 'security-checkup';
+  const presentation = theme?.presentation || getThemePresentation(activeSlug || 'safety-checkup');
+  const cardTitle = presentation.cardTitle || (isSecurity ? 'Security Inspection' : 'Safety Checkup');
 
   const { riskLevel, confidenceLevel, score, findings, recommendations, limitations, summary, evidence = [] } = report;
 
@@ -36,7 +45,9 @@ export function SafetyAnalysisCard({ report, className }: SafetyAnalysisCardProp
           cardBorder: 'border-red-500/40 dark:border-red-500/50',
           bgHeader: 'bg-red-500/10 text-red-700 dark:text-red-300',
           badge: 'bg-red-600 text-white',
-          desc: 'High probability of malicious intent, credential theft, or severe hazard.',
+          desc: isSecurity
+            ? 'Critical vulnerability, active exploit, or severe security hazard.'
+            : 'High probability of malicious intent, credential theft, or severe hazard.',
         };
       case 'high':
         return {
@@ -45,7 +56,9 @@ export function SafetyAnalysisCard({ report, className }: SafetyAnalysisCardProp
           cardBorder: 'border-rose-500/40 dark:border-rose-500/50',
           bgHeader: 'bg-rose-500/10 text-rose-700 dark:text-rose-300',
           badge: 'bg-rose-600 text-white',
-          desc: 'Strong deceptive patterns or phishing indicators detected.',
+          desc: isSecurity
+            ? 'Elevated technical threat indicators or deceptive anomalies identified.'
+            : 'Strong deceptive patterns or phishing indicators detected.',
         };
       case 'medium':
         return {
@@ -54,7 +67,9 @@ export function SafetyAnalysisCard({ report, className }: SafetyAnalysisCardProp
           cardBorder: 'border-amber-500/40 dark:border-amber-500/50',
           bgHeader: 'bg-amber-500/10 text-amber-700 dark:text-amber-300',
           badge: 'bg-amber-600 text-white',
-          desc: 'Elevated caution warranted. Contains suspicious characteristics.',
+          desc: isSecurity
+            ? 'Anomalous characteristics or potential vulnerabilities detected.'
+            : 'Elevated caution warranted. Contains suspicious characteristics.',
         };
       case 'low':
       default:
@@ -64,7 +79,9 @@ export function SafetyAnalysisCard({ report, className }: SafetyAnalysisCardProp
           cardBorder: 'border-emerald-500/40 dark:border-emerald-500/50',
           bgHeader: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
           badge: 'bg-emerald-600 text-white',
-          desc: 'No immediate suspicious threat patterns identified.',
+          desc: isSecurity
+            ? 'No anomalous threat patterns or vulnerable signatures identified.'
+            : 'No immediate suspicious threat patterns identified.',
         };
     }
   };
@@ -80,7 +97,7 @@ export function SafetyAnalysisCard({ report, className }: SafetyAnalysisCardProp
         className
       )}
       role="region"
-      aria-label={`Safety Checkup Result: ${config.label}`}
+      aria-label={`${cardTitle} Result: ${config.label}`}
     >
       {/* Header bar */}
       <div className={cn('flex items-center justify-between px-4 py-3 border-b', config.bgHeader)}>
@@ -88,7 +105,7 @@ export function SafetyAnalysisCard({ report, className }: SafetyAnalysisCardProp
           <RiskIcon className="h-5 w-5 shrink-0" aria-hidden="true" />
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-xs font-bold tracking-wider uppercase">Safety Checkup</span>
+              <span className="text-xs font-bold tracking-wider uppercase">{cardTitle}</span>
               <span className={cn('text-[11px] font-semibold px-2 py-0.5 rounded-full', config.badge)}>
                 {config.label}
               </span>
@@ -101,7 +118,7 @@ export function SafetyAnalysisCard({ report, className }: SafetyAnalysisCardProp
           <div className="hidden sm:flex flex-col items-end text-right text-[11px] opacity-80">
             <span>Confidence: <strong className="capitalize">{confidenceLevel}</strong></span>
             {typeof score === 'number' && (
-              <span>Heuristic score: <strong>{score}/100</strong></span>
+              <span>{isSecurity ? 'Deterministic score:' : 'Heuristic score:'} <strong>{score}/100</strong></span>
             )}
           </div>
           <button
@@ -129,7 +146,7 @@ export function SafetyAnalysisCard({ report, className }: SafetyAnalysisCardProp
           <div>
             <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
               <ShieldAlert className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
-              Detected Indicators ({findings.length})
+              {presentation.findingsLabel || (isSecurity ? 'Technical Findings & Indicators' : 'What We Found')} ({findings.length})
             </h4>
             {findings.length > 0 ? (
               <ul className="space-y-1.5 list-none pl-0">
@@ -150,7 +167,7 @@ export function SafetyAnalysisCard({ report, className }: SafetyAnalysisCardProp
               </ul>
             ) : (
               <p className="text-xs text-muted-foreground italic pl-1">
-                No suspicious indicators were triggered by lexical analysis.
+                {presentation.emptyFindingsText || (isSecurity ? 'No anomalous threat signatures or vulnerable patterns detected.' : 'No suspicious indicators were detected in this message or link.')}
               </p>
             )}
           </div>
@@ -166,7 +183,7 @@ export function SafetyAnalysisCard({ report, className }: SafetyAnalysisCardProp
               <div className="space-y-2">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
                   <Globe className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
-                  Reputation Telemetry ({repEvidence.length})
+                  {presentation.telemetryLabel || (isSecurity ? 'Threat Intelligence & Reputation Feeds' : 'Safety Intelligence & Link Verification')} ({repEvidence.length})
                 </h4>
                 <ul className="space-y-1.5 list-none pl-0">
                   {repEvidence.map((ev, i) => {
@@ -244,7 +261,7 @@ export function SafetyAnalysisCard({ report, className }: SafetyAnalysisCardProp
             <div>
               <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
                 <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
-                Recommended Actions
+                {presentation.actionsLabel || (isSecurity ? 'Remediation & Hardening Actions' : 'What You Should Do')}
               </h4>
               <ul className="space-y-1.5 list-none pl-0">
                 {recommendations.map((r, i) => (
@@ -267,7 +284,7 @@ export function SafetyAnalysisCard({ report, className }: SafetyAnalysisCardProp
             <div className="rounded-lg bg-muted/20 border border-border/40 p-2.5 text-[11px] text-muted-foreground space-y-1">
               <div className="font-semibold flex items-center gap-1 text-foreground/80">
                 <Info className="h-3 w-3" aria-hidden="true" />
-                <span>Scope & Analysis Boundaries</span>
+                <span>{presentation.limitationsLabel || (isSecurity ? 'Technical Scope & Analysis Boundaries' : 'Things to Keep in Mind')}</span>
               </div>
               <ul className="list-disc pl-4 space-y-0.5">
                 {limitations.map((lim, idx) => (

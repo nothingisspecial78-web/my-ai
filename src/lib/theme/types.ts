@@ -72,6 +72,21 @@ export interface ThemeConfig {
 }
 
 /**
+ * Presentation and UX configuration for theme-specific card and UI rendering.
+ */
+export interface ThemePresentationConfig {
+  audience: 'general' | 'technical';
+  tone: string;
+  context: string;
+  cardTitle?: string;
+  findingsLabel?: string;
+  telemetryLabel?: string;
+  actionsLabel?: string;
+  limitationsLabel?: string;
+  emptyFindingsText?: string;
+}
+
+/**
  * Unified Theme Definition representing both Visual and Intelligence layers.
  */
 export interface ThemeDefinition {
@@ -85,6 +100,7 @@ export interface ThemeDefinition {
   archetype: ThemeArchetype;
   visual: ThemeVisualConfig;
   welcome: WelcomeThemeConfig;
+  presentation?: ThemePresentationConfig;
   instructions?: string;
   rules?: string[];
   config?: ThemeConfig;
@@ -124,6 +140,11 @@ export function parseTheme(dbTheme: DBTheme): ThemeDefinition {
       heroSubtitle: dbTheme.description || 'How can I help you today?',
       heroIcon: dbTheme.icon || 'Sparkles',
       suggestions: [],
+    },
+    presentation: {
+      audience: 'general',
+      tone: 'versatile',
+      context: dbTheme.name,
     },
     instructions: dbConfig.instructions,
     rules: dbConfig.rules,

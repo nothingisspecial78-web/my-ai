@@ -1,4 +1,4 @@
-import { ThemeDefinition } from './types';
+import { ThemeDefinition, ThemePresentationConfig } from './types';
 
 /**
  * Canonical Static Definitions for MyAI Active Themes
@@ -44,6 +44,13 @@ export const GENERAL_AI_THEME: ThemeDefinition = {
       { title: 'Explain a complex topic', prompt: 'Explain this concept simply:', iconName: 'BookOpen' },
     ],
   },
+  presentation: {
+    audience: 'general',
+    tone: 'versatile',
+    context: 'General Assistance',
+    cardTitle: 'Assistant Analysis',
+    emptyFindingsText: 'No specific findings to report.',
+  },
   config: {
     instructions: 'You are a helpful general-purpose AI assistant.',
   },
@@ -76,6 +83,12 @@ export const MATHEMATICS_THEME: ThemeDefinition = {
       { title: "Probability distribution proof", prompt: "Prove Bayes' theorem from the definition of conditional probability:", iconName: 'Percent' },
       { title: 'Discrete math logic', prompt: 'Construct a truth table for the following compound proposition:', iconName: 'Binary' },
     ],
+  },
+  presentation: {
+    audience: 'technical',
+    tone: 'rigorous',
+    context: 'Exact Mathematical Reasoning',
+    cardTitle: 'Mathematical Proof & Derivation',
   },
   instructions: 'You are an expert mathematical engine. Always provide step-by-step proofs, formulas, and exact calculations.',
   rules: ['Never guess arithmetic', 'Always show working'],
@@ -113,6 +126,12 @@ export const PROGRAMMING_THEME: ThemeDefinition = {
       { title: 'SQL query optimization', prompt: 'Analyze this PostgreSQL query and suggest indexing strategies:', iconName: 'Database' },
     ],
   },
+  presentation: {
+    audience: 'technical',
+    tone: 'precise',
+    context: 'Software Engineering & Architecture',
+    cardTitle: 'Code & Architecture Diagnostics',
+  },
   instructions: 'You are an expert software engineer. Provide concise code, best practices, and security-first logic.',
   rules: ['Use TypeScript where applicable', 'Do not omit important imports'],
   config: {
@@ -144,10 +163,21 @@ export const SAFETY_CHECKUP_THEME: ThemeDefinition = {
     heroIcon: 'ShieldCheck',
     suggestions: [
       { title: 'Check a suspicious URL', prompt: 'Is this URL safe or a phishing attempt? ', iconName: 'Link' },
-      { title: 'Verify an unexpected text message', prompt: 'I received this text asking for urgent action. Is it a scam? ', iconName: 'MessageSquareWarning' },
-      { title: 'Recovery phrase security inquiry', prompt: 'Someone claiming to be customer support asked for my wallet seed phrase. Should I share it?', iconName: 'Key' },
-      { title: 'Analyze an invoice link', prompt: 'Check this payment notification link for deceptive signals: ', iconName: 'FileWarning' },
+      { title: 'Analyze a scam message', prompt: 'I received this suspicious message asking for urgent action. Is it a scam? ', iconName: 'MessageSquareWarning' },
+      { title: 'Check an email or invoice', prompt: 'Check this payment notification link or invoice for deceptive signals: ', iconName: 'FileWarning' },
+      { title: 'Review a suspicious request', prompt: 'Someone claiming to be customer support asked for my password or OTP. Should I share it?', iconName: 'Key' },
     ],
+  },
+  presentation: {
+    audience: 'general',
+    tone: 'reassuring',
+    context: 'Everyday Digital Safety',
+    cardTitle: 'Safety Checkup',
+    findingsLabel: 'What We Found',
+    telemetryLabel: 'Safety Intelligence & Link Verification',
+    actionsLabel: 'What You Should Do',
+    limitationsLabel: 'Things to Keep in Mind',
+    emptyFindingsText: 'No suspicious indicators were detected in this message or link.',
   },
   instructions: 'You are a protective digital safety assistant explaining online risks in plain, accessible language without technical jargon.',
   config: {
@@ -180,8 +210,19 @@ export const SECURITY_CHECKUP_THEME: ThemeDefinition = {
       { title: 'Inspect URL structure and punycode', prompt: 'Perform a technical security breakdown on this suspicious domain: ', iconName: 'Terminal' },
       { title: 'Audit code for injection flaws', prompt: 'Inspect this server code for SQL injection or command injection risks: ', iconName: 'FileCode' },
       { title: 'Review HTTP security headers', prompt: 'Audit the recommended CSP and HSTS headers for this web service: ', iconName: 'ShieldCheck' },
-      { title: 'Exposed credential audit', prompt: 'Check if this API URL inadvertently exposes sensitive credentials in query parameters:', iconName: 'AlertTriangle' },
+      { title: 'Check for exposed secrets', prompt: 'Audit this URL, API endpoint, or configuration for exposed credentials:', iconName: 'AlertTriangle' },
     ],
+  },
+  presentation: {
+    audience: 'technical',
+    tone: 'diagnostic',
+    context: 'Technical Security Inspection',
+    cardTitle: 'Security Inspection',
+    findingsLabel: 'Technical Findings & Indicators',
+    telemetryLabel: 'Threat Intelligence & Reputation Feeds',
+    actionsLabel: 'Remediation & Hardening Actions',
+    limitationsLabel: 'Technical Scope & Analysis Boundaries',
+    emptyFindingsText: 'No anomalous threat signatures or vulnerable patterns detected.',
   },
   instructions: 'You are a cybersecurity expert and threat analyst providing rigorous technical risk breakdowns, protocol analysis, and defensive engineering recommendations.',
   config: {
@@ -216,6 +257,12 @@ export const STUDY_THEME: ThemeDefinition = {
       { title: 'World history analysis', prompt: 'Ask me questions to help me analyze the economic causes of the Industrial Revolution:', iconName: 'Globe' },
       { title: 'Language grammar breakdown', prompt: 'Test my understanding of Spanish subjunctive verb conjugations with exercises:', iconName: 'FileText' },
     ],
+  },
+  presentation: {
+    audience: 'general',
+    tone: 'socratic',
+    context: 'Guided Learning & Inquiry',
+    cardTitle: 'Socratic Dialogue & Feedback',
   },
   instructions: 'You are a Socratic tutor. Guide the student to the answer using questions and hints.',
   rules: ['Do not give the direct answer immediately', 'Ask probing questions'],
@@ -252,6 +299,12 @@ export const TIBB_AL_NABI_THEME: ThemeDefinition = {
     heroSubtitle: 'Prophetic health principles.',
     heroIcon: 'HeartPulse',
     suggestions: [],
+  },
+  presentation: {
+    audience: 'general',
+    tone: 'reassuring',
+    context: 'Prophetic Health Principles',
+    cardTitle: 'Holistic Traditional Guidance',
   },
   config: {},
 };
@@ -299,4 +352,19 @@ export function resolveThemeSync(themeId: string | null | undefined): ThemeDefin
     return GENERAL_AI_THEME;
   }
   return CANONICAL_THEME_MAP[themeId] || GENERAL_AI_THEME;
+}
+
+/**
+ * Synchronously retrieves the canonical presentation configuration for a theme slug or ID.
+ * Falls back to safe default presentation if not explicitly specified.
+ */
+export function getThemePresentation(themeIdOrSlug: string | null | undefined): ThemePresentationConfig {
+  const theme = resolveThemeSync(themeIdOrSlug);
+  return (
+    theme.presentation || {
+      audience: 'general',
+      tone: 'versatile',
+      context: theme.name,
+    }
+  );
 }

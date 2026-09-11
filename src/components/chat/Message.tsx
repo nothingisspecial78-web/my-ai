@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils';
 import { Attachment } from '@/lib/ai/types';
 import { SafetyAnalysisCard } from '@/components/safety/SafetyAnalysisCard';
 import { SafetyReport } from '@/lib/safety/types';
+import { ThemeDefinition } from '@/lib/theme/types';
 
 interface MessageProps {
   id?: string;
@@ -26,9 +27,10 @@ interface MessageProps {
   showTimestamp?: boolean;
   isThinking?: boolean;
   metadata?: Record<string, unknown>;
+  theme?: ThemeDefinition;
 }
 
-function MessageComponent({ id, role, content, isLast, onRegenerate, timestamp, showTimestamp, isThinking, metadata }: MessageProps) {
+function MessageComponent({ id, role, content, isLast, onRegenerate, timestamp, showTimestamp, isThinking, metadata, theme }: MessageProps) {
   const isUser = role === 'user';
   const [copied, setCopied] = useState(false);
   const [feedback, setFeedback] = useState<'like' | 'dislike' | null>(null);
@@ -122,7 +124,11 @@ function MessageComponent({ id, role, content, isLast, onRegenerate, timestamp, 
         <div className="flex-1 min-w-0">
           <div className="bg-[var(--theme-card)] border border-[var(--theme-border)] rounded-2xl p-5 shadow-sm transition-colors">
             {safetyReport && (
-              <SafetyAnalysisCard report={safetyReport} />
+              <SafetyAnalysisCard
+                report={safetyReport}
+                themeSlug={(metadata?.themeSlug as string | undefined) || theme?.slug}
+                theme={theme}
+              />
             )}
             {isThinking ? (
               <div className="flex items-center gap-1.5 h-6 opacity-70">
@@ -280,6 +286,8 @@ export const Message = memo(MessageComponent, (prev, next) => {
     prev.content === next.content &&
     prev.isLast === next.isLast &&
     prev.isThinking === next.isThinking &&
-    prev.timestamp === next.timestamp
+    prev.timestamp === next.timestamp &&
+    prev.metadata === next.metadata &&
+    prev.theme?.slug === next.theme?.slug
   );
 });
