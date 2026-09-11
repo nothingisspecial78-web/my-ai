@@ -7,12 +7,16 @@ import {
   Volume2, 
   ThumbsUp, 
   ThumbsDown,
-  Pencil
+  Pencil,
+  FileText,
+  FileCode,
+  ExternalLink
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { cn } from '@/lib/utils';
 import { Attachment } from '@/lib/ai/types';
+import { formatFileSize } from '@/lib/attachments';
 import { SafetyAnalysisCard } from '@/components/safety/SafetyAnalysisCard';
 import { SafetyReport } from '@/lib/safety/types';
 import { ThemeDefinition } from '@/lib/theme/types';
@@ -38,6 +42,7 @@ function MessageComponent({ id, role, content, isLast, onRegenerate, timestamp, 
   // Extract attachments from metadata if present
   const attachments = (metadata?.attachments as Attachment[]) || [];
   const imageAttachments = attachments.filter(a => a.type === 'image' && a.url);
+  const documentAttachments = attachments.filter(a => a.type !== 'image' && a.url);
   const safetyReport = (metadata?.safetyReport as SafetyReport | undefined) || undefined;
 
   const handleCopy = () => {
@@ -75,6 +80,46 @@ function MessageComponent({ id, role, content, isLast, onRegenerate, timestamp, 
                   <img src={att.url} alt="Uploaded image" className="w-full h-auto object-cover max-h-[300px]" />
                 </div>
               ))}
+            </div>
+          )}
+          {documentAttachments.length > 0 && (
+            <div className="flex flex-wrap justify-end gap-2 mb-1">
+              {documentAttachments.map((att, idx) => {
+                const name = att.original_name || 'Document';
+                const isPdf = att.type === 'pdf' || name.endsWith('.pdf');
+                const isHtml = att.type === 'html' || name.endsWith('.html') || name.endsWith('.htm');
+
+                return (
+                  <a
+                    key={idx}
+                    href={att.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    download={name}
+                    className="flex items-center gap-2.5 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-[var(--theme-card)] hover:bg-gray-50 dark:hover:bg-gray-800/80 transition-colors shadow-sm max-w-[260px] text-xs group/doc"
+                    aria-label={`Open or download ${name}`}
+                  >
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 shrink-0">
+                      {isPdf ? (
+                        <FileText size={16} className="text-red-500" aria-hidden="true" />
+                      ) : isHtml ? (
+                        <FileCode size={16} className="text-amber-500" aria-hidden="true" />
+                      ) : (
+                        <FileText size={16} className="text-blue-500" aria-hidden="true" />
+                      )}
+                    </div>
+                    <div className="flex flex-col min-w-0 flex-1">
+                      <span className="font-medium text-gray-900 dark:text-gray-100 truncate group-hover/doc:underline">
+                        {name}
+                      </span>
+                      <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                        {formatFileSize(att.size)}
+                      </span>
+                    </div>
+                    <ExternalLink size={12} className="text-gray-400 shrink-0 opacity-0 group-hover/doc:opacity-100 transition-opacity" aria-hidden="true" />
+                  </a>
+                );
+              })}
             </div>
           )}
           {content.trim() && (

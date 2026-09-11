@@ -117,4 +117,149 @@ describe('POST /api/upload/sign', () => {
     const body = await res.json();
     expect(body.error).toBe('Upload service is not configured');
   });
+
+  it('signs raw PDF document uploads with documents folder', async () => {
+    (createClient as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      auth: {
+        getUser: vi.fn().mockResolvedValueOnce({ data: { user: { id: 'user-123' } } }),
+      },
+    });
+
+    (rateLimiter.check as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      allowed: true,
+      remaining: 9,
+      reset: Date.now() + 60000,
+    });
+
+    const res = await POST(
+      new Request('http://localhost/api/upload/sign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          resource_type: 'raw',
+          mime_type: 'application/pdf',
+          filename: 'report.pdf',
+          file_size: 1024 * 1024,
+        }),
+      })
+    );
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.folder).toBe('my_ai_uploads/documents');
+    expect(body.resource_type).toBe('raw');
+    expect(body.upload_url).toBe('https://api.cloudinary.com/v1_1/test_cloud/raw/upload');
+    expect(body.allowed_formats).toBeUndefined();
+
+    const stringToSign = `folder=my_ai_uploads/documents&timestamp=${body.timestamp}`;
+    const expectedSig = crypto
+      .createHash('sha1')
+      .update(stringToSign + 'test_secret')
+      .digest('hex');
+    expect(body.signature).toBe(expectedSig);
+  });
+
+  it('signs raw TXT and HTML document uploads', async () => {
+    (createClient as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      auth: {
+        getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'user-123' } } }),
+      },
+    });
+
+    (rateLimiter.check as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      allowed: true,
+      remaining: 9,
+      reset: Date.now() + 60000,
+    });
+
+    const txtRes = await POST(
+      new Request('http://localhost/api/upload/sign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          resource_type: 'raw',
+          mime_type: 'text/plain',
+          filename: 'notes.txt',
+          file_size: 50000,
+        }),
+      })
+    );
+    expect(txtRes.status).toBe(200);
+
+    const htmlRes = await POST(
+      new Request('http://localhost/api/upload/sign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          resource_type: 'raw',
+          mime_type: 'text/html',
+          filename: 'page.html',
+          file_size: 50000,
+        }),
+      })
+    );
+    expect(htmlRes.status).toBe(200);
+  });
+
+  it('rejects unsupported document MIME types for raw upload', async () => {
+    (createClient as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      auth: {
+        getUser: vi.fn().mockResolvedValueOnce({ data: { user: { id: 'user-123' } } }),
+      },
+    });
+
+    (rateLimiter.check as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      allowed: true,
+      remaining: 9,
+      reset: Date.now() + 60000,
+    });
+
+    const res = await POST(
+      new Request('http://localhost/api/upload/sign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          resource_type: 'raw',
+          mime_type: 'application/x-msdownload',
+          filename: 'malware.exe',
+          file_size: 1024,
+        }),
+      })
+    );
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/unsupported/i);
+  });
+
+  it('rejects oversized document uploads', async () => {
+    (createClient as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      auth: {
+        getUser: vi.fn().mockResolvedValueOnce({ data: { user: { id: 'user-123' } } }),
+      },
+    });
+
+    (rateLimiter.check as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      allowed: true,
+      remaining: 9,
+      reset: Date.now() + 60000,
+    });
+
+    const res = await POST(
+      new Request('http://localhost/api/upload/sign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          resource_type: 'raw',
+          mime_type: 'application/pdf',
+          filename: 'huge.pdf',
+          file_size: 15 * 1024 * 1024,
+        }),
+      })
+    );
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/exceeds maximum allowed size/i);
+  });
 });

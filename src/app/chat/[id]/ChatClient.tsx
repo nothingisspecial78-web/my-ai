@@ -122,7 +122,7 @@ export function ChatClient({ conversation, initialMessages, theme }: ChatClientP
    * Auto-title: Asynchronously derive and persist a title from the first user message.
    * Best-effort — failures do not affect message saving or generation.
    */
-  async function maybeAutoTitle(userText: string) {
+  async function maybeAutoTitle(userText: string, attachments?: Attachment[]) {
     if (autoTitleDoneRef.current) return;
     
     // Only auto-title if current title looks like a default/new conversation
@@ -136,7 +136,17 @@ export function ChatClient({ conversation, initialMessages, theme }: ChatClientP
     autoTitleDoneRef.current = true;
 
     try {
-      const newTitle = extractConversationTitle(userText);
+      let newTitle: string | null = null;
+      if (userText.trim()) {
+        newTitle = extractConversationTitle(userText);
+      } else if (attachments && attachments.length > 0) {
+        const firstType = attachments[0].type;
+        if (firstType === 'pdf') newTitle = 'PDF Analysis';
+        else if (firstType === 'html') newTitle = 'HTML Analysis';
+        else if (firstType === 'text') newTitle = 'Document Analysis';
+        else newTitle = 'Image Analysis';
+      }
+
       if (newTitle && newTitle !== 'New conversation') {
         await updateConversation(conversation.id, { title: newTitle });
         router.refresh();
@@ -386,7 +396,7 @@ export function ChatClient({ conversation, initialMessages, theme }: ChatClientP
       lastSyncStateRef.current = { id: savedUserMsg.id, content: savedUserMsg.content };
       
       // 3. Auto-title (best-effort, non-blocking — fire and forget)
-      maybeAutoTitle(text);
+      maybeAutoTitle(text, attachments);
       
       // 4. Trigger Generation (does NOT wait for title)
       // triggerGeneration will manage its own finally block to clear isSending

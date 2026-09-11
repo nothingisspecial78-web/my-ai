@@ -26,7 +26,15 @@ export default function ChatEmptyPage() {
     try {
       const { createConversation, createMessage } = await import('@/lib/database');
       
-      const title = text.trim() ? extractConversationTitle(text) : 'Image Analysis';
+      let defaultTitle = 'New conversation';
+      if (attachments && attachments.length > 0) {
+        const firstType = attachments[0].type;
+        if (firstType === 'pdf') defaultTitle = 'PDF Analysis';
+        else if (firstType === 'html') defaultTitle = 'HTML Analysis';
+        else if (firstType === 'text') defaultTitle = 'Document Analysis';
+        else defaultTitle = 'Image Analysis';
+      }
+      const title = text.trim() ? extractConversationTitle(text) : defaultTitle;
       
       const newConvo = await createConversation(title, selectedThemeId || undefined);
       if (newConvo) {

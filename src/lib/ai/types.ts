@@ -1,7 +1,10 @@
 export type Role = 'user' | 'assistant' | 'system';
 
+export type AttachmentType = 'image' | 'file' | 'pdf' | 'text' | 'html';
+
 export interface Attachment {
-  type: 'image' | 'file';
+  id?: string;
+  type: AttachmentType;
   url: string;
   public_id?: string;
   mime_type?: string;

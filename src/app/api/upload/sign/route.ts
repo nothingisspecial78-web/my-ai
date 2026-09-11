@@ -2,8 +2,9 @@ import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { createClient } from '@/lib/supabase/server';
 import { rateLimiter } from '@/lib/api/rate-limiter';
+import { ATTACHMENT_LIMITS, classifyAttachment } from '@/lib/attachments';
 
-export async function POST() {
+export async function POST(req: Request) {
   try {
     // Authenticate user
     const supabase = await createClient();
@@ -37,16 +38,90 @@ export async function POST() {
       return NextResponse.json({ error: 'Upload service is not configured' }, { status: 500 });
     }
 
+    // Parse optional request body for resource_type / mime_type / file_size / filename
+    let resourceType: 'image' | 'raw' = 'image';
+    let mimeType: string | undefined;
+    let fileSize: number | undefined;
+    let filename: string | undefined;
+
+    try {
+      if (req.headers.get('content-type')?.includes('application/json')) {
+        const body = await req.json();
+        if (body && typeof body === 'object') {
+          if (body.resource_type === 'raw' || body.resource_type === 'image') {
+            resourceType = body.resource_type;
+          }
+          if (typeof body.mime_type === 'string') mimeType = body.mime_type;
+          if (typeof body.file_size === 'number') fileSize = body.file_size;
+          if (typeof body.filename === 'string') filename = body.filename;
+        }
+      }
+    } catch {
+      // Ignore body parsing failure; default to image
+    }
+
     const timestamp = Math.round(new Date().getTime() / 1000);
-    // We strictly enforce a preset or specific folder if needed.
-    // For signed uploads, parameters must be sorted alphabetically before signing.
-    const folder = 'my_ai_uploads';
     const paramsToSign: Record<string, string | number> = {
       timestamp,
-      folder,
-      // Add secure server-side constraints
-      allowed_formats: 'jpg,png,webp'
     };
+
+    let folder = 'my_ai_uploads';
+    let uploadUrl = `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`;
+    let allowedFormats: string | undefined = 'jpg,png,webp';
+
+    if (resourceType === 'raw') {
+      folder = 'my_ai_uploads/documents';
+      uploadUrl = `https://api.cloudinary.com/v1_1/${cloudName}/raw/upload`;
+      allowedFormats = undefined; // raw uploads do not use allowed_formats in signature
+
+      // Validate MIME type and file size if supplied
+      if (mimeType || filename) {
+        const classification = classifyAttachment(mimeType || '', filename);
+        if (!classification.type || classification.type === 'image') {
+          return NextResponse.json(
+            { error: classification.error || 'Invalid or unsupported document type.' },
+            { status: 400 }
+          );
+        }
+
+        // Validate size if specified
+        if (typeof fileSize === 'number') {
+          if (fileSize <= 0) {
+            return NextResponse.json({ error: 'File cannot be empty.' }, { status: 400 });
+          }
+          const docLimit = classification.type === 'pdf'
+            ? ATTACHMENT_LIMITS.pdf.maxSize
+            : ATTACHMENT_LIMITS.text.maxSize;
+          if (fileSize > docLimit) {
+            const mb = Math.round(docLimit / (1024 * 1024));
+            return NextResponse.json(
+              { error: `File exceeds maximum allowed size of ${mb}MB for ${classification.type.toUpperCase()} files.` },
+              { status: 400 }
+            );
+          }
+        }
+      }
+
+      paramsToSign.folder = folder;
+    } else {
+      // image upload
+      folder = 'my_ai_uploads';
+      paramsToSign.folder = folder;
+      paramsToSign.allowed_formats = 'jpg,png,webp';
+
+      // Validate image size if specified
+      if (typeof fileSize === 'number') {
+        if (fileSize <= 0) {
+          return NextResponse.json({ error: 'File cannot be empty.' }, { status: 400 });
+        }
+        if (fileSize > ATTACHMENT_LIMITS.image.maxSize) {
+          return NextResponse.json(
+            { error: 'Image size exceeds maximum allowed size of 5MB.' },
+            { status: 400 }
+          );
+        }
+      }
+    }
 
     // Sort keys alphabetically
     const sortedKeys = Object.keys(paramsToSign).sort();
@@ -64,7 +139,9 @@ export async function POST() {
       apiKey,
       cloudName,
       folder,
-      allowed_formats: paramsToSign.allowed_formats
+      resource_type: resourceType,
+      upload_url: uploadUrl,
+      ...(allowedFormats ? { allowed_formats: allowedFormats } : {}),
     });
   } catch (error) {
     console.error('Error generating upload signature:', error);

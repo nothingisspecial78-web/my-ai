@@ -15,8 +15,9 @@ describe('New Chat Upload & Attachment Preservation', () => {
     // Verify handleSend signature includes attachments
     expect(content).toContain('handleSend = async (text: string, attachments?: Attachment[])');
 
-    // Verify title fallback to "Image Analysis" for image-only messages
-    expect(content).toContain("text.trim() ? extractConversationTitle(text) : 'Image Analysis'");
+    // Verify title fallback handles attachments and text extraction
+    expect(content).toContain('extractConversationTitle(text)');
+    expect(content).toContain('defaultTitle');
 
     // Verify metadata stores attachments when present, and empty object when not
     expect(content).toContain('metadata: attachments && attachments.length > 0 ? { attachments');

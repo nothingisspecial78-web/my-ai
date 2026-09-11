@@ -2,6 +2,13 @@ import { AIProvider, Message, AIStreamEvent } from './types';
 import { GoogleGenAI } from '@google/genai';
 import { SYSTEM_INSTRUCTION } from './system-prompt';
 import { getEnv } from '@/lib/env';
+import { sanitizeFilename } from '@/lib/attachments';
+import {
+  sanitizeHtmlToText,
+  truncateExtractedText,
+  wrapDocumentContext,
+  getEmptyPromptFallback,
+} from '@/lib/attachments/extract';
 
 function sanitizePromptLeakage(text: string): string {
   return text
@@ -57,10 +64,12 @@ export class GeminiProvider implements AIProvider {
     yield { type: 'start' };
 
     try {
-      // Map messages to Gemini Content structure, resolving images securely
+      // Map messages to Gemini Content structure, resolving images and documents securely
       const processedMessages = [];
       let imageCount = 0;
+      let docCount = 0;
       const maxImages = 4;
+      const maxDocs = 4;
       const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
 
       for (let i = messages.length - 1; i >= 0; i--) {
@@ -68,13 +77,19 @@ export class GeminiProvider implements AIProvider {
         const parts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> = [];
         let allImagesFailed = false;
         let hasTriedImages = false;
+        let allDocsFailed = false;
+        let hasTriedDocuments = false;
 
         if (msg.metadata?.attachments && Array.isArray(msg.metadata.attachments)) {
-          let successCount = 0;
-          let failCount = 0;
+          let imageSuccessCount = 0;
+          let imageFailCount = 0;
+          let docSuccessCount = 0;
+          let docFailCount = 0;
 
           for (const att of msg.metadata.attachments) {
-            if (att.type === 'image' && att.url) {
+            const attType = att.type || 'image';
+
+            if (attType === 'image' && att.url) {
               hasTriedImages = true;
               if (imageCount >= maxImages) {
                 parts.push({ text: '[Attached image omitted due to context limits.]' });
@@ -122,7 +137,7 @@ export class GeminiProvider implements AIProvider {
                     },
                   });
                   imageCount++;
-                  successCount++;
+                  imageSuccessCount++;
                   continue;
                 }
 
@@ -182,31 +197,271 @@ export class GeminiProvider implements AIProvider {
                 });
 
                 imageCount++;
-                successCount++;
+                imageSuccessCount++;
               } catch (err) {
                 const isAbort = err instanceof Error && (err.name === 'AbortError' || err.message === 'AbortError');
                 if (isAbort) throw err;
 
                 console.error('Image fetch error:', err);
                 parts.push({ text: '[One attached image could not be loaded.]' });
-                failCount++;
+                imageFailCount++;
+              }
+            } else if (
+              (attType === 'pdf' || (attType === 'file' && (att.mime_type === 'application/pdf' || att.original_name?.endsWith('.pdf')))) &&
+              att.url
+            ) {
+              // PDF Document attachment
+              hasTriedDocuments = true;
+              if (docCount >= maxDocs) {
+                parts.push({ text: '[Attached document omitted due to context limits.]' });
+                continue;
+              }
+
+              try {
+                let publicId = att.public_id;
+                if (!publicId) {
+                  const urlObj = new URL(att.url);
+                  if (urlObj.protocol !== 'https:' || urlObj.hostname !== 'res.cloudinary.com') {
+                    throw new Error('Invalid host');
+                  }
+                  const segments = urlObj.pathname.split('/').filter(Boolean);
+                  if (segments[0] !== cloudName || segments[1] !== 'raw' || segments[2] !== 'upload') {
+                    throw new Error('Invalid path');
+                  }
+                  const uploadIdx = segments.indexOf('upload');
+                  const remainder = segments.slice(uploadIdx + 1);
+                  if (remainder[0] && remainder[0].startsWith('v') && /\d/.test(remainder[0])) {
+                    remainder.shift();
+                  }
+                  publicId = remainder.join('/');
+                }
+
+                if (!cloudName) throw new Error('Cloudinary config missing');
+
+                if (!publicId.startsWith('my_ai_uploads/')) {
+                  throw new Error('Invalid upload namespace');
+                }
+
+                if (!/^my_ai_uploads\/[a-zA-Z0-9_\-\.\/]+$/.test(publicId) || publicId.includes('..') || publicId.includes('//')) {
+                  throw new Error('Invalid characters in public_id');
+                }
+
+                const cached = getCachedImage(publicId);
+                if (cached) {
+                  parts.push({
+                    inlineData: {
+                      mimeType: 'application/pdf',
+                      data: cached.data,
+                    },
+                  });
+                  docCount++;
+                  docSuccessCount++;
+                  continue;
+                }
+
+                const fetchUrl = `https://res.cloudinary.com/${cloudName}/raw/upload/v1/${publicId}`;
+                const res = await fetch(fetchUrl, { signal: options?.signal });
+                if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
+
+                let contentType = res.headers.get('content-type') || '';
+                contentType = contentType.split(';')[0].trim().toLowerCase();
+                if (
+                  contentType &&
+                  contentType !== 'application/pdf' &&
+                  contentType !== 'application/octet-stream' &&
+                  !att.original_name?.endsWith('.pdf')
+                ) {
+                  throw new Error(`Unsupported MIME type: ${contentType}`);
+                }
+
+                const contentLength = res.headers.get('content-length');
+                const MAX_SIZE = 10 * 1024 * 1024; // 10MB
+                if (contentLength && parseInt(contentLength, 10) > MAX_SIZE) {
+                  throw new Error('Document exceeds 10MB limit');
+                }
+
+                if (!res.body) throw new Error('No response body');
+
+                const reader = res.body.getReader();
+                const chunks = [];
+                let downloaded = 0;
+
+                while (true) {
+                  const { done, value } = await reader.read();
+                  if (done) break;
+                  if (value) {
+                    downloaded += value.length;
+                    if (downloaded > MAX_SIZE) {
+                      reader.cancel().catch(() => {});
+                      throw new Error('Document exceeds 10MB limit during download');
+                    }
+                    chunks.push(value);
+                  }
+                }
+
+                const totalArray = new Uint8Array(downloaded);
+                let offset = 0;
+                for (const chunk of chunks) {
+                  totalArray.set(chunk, offset);
+                  offset += chunk.length;
+                }
+                const base64 = Buffer.from(totalArray).toString('base64');
+
+                setCachedImage(publicId, {
+                  mimeType: 'application/pdf',
+                  data: base64,
+                });
+
+                parts.push({
+                  inlineData: {
+                    mimeType: 'application/pdf',
+                    data: base64,
+                  },
+                });
+
+                docCount++;
+                docSuccessCount++;
+              } catch (err) {
+                const isAbort = err instanceof Error && (err.name === 'AbortError' || err.message === 'AbortError');
+                if (isAbort) throw err;
+
+                console.error('PDF fetch error:', err);
+                parts.push({ text: '[One attached document could not be loaded.]' });
+                docFailCount++;
+              }
+            } else if (
+              (attType === 'text' || attType === 'html' || (attType === 'file' && (att.original_name?.endsWith('.txt') || att.original_name?.endsWith('.html') || att.original_name?.endsWith('.htm')))) &&
+              att.url
+            ) {
+              // TXT or HTML Document attachment
+              hasTriedDocuments = true;
+              if (docCount >= maxDocs) {
+                parts.push({ text: '[Attached document omitted due to context limits.]' });
+                continue;
+              }
+
+              try {
+                let publicId = att.public_id;
+                if (!publicId) {
+                  const urlObj = new URL(att.url);
+                  if (urlObj.protocol !== 'https:' || urlObj.hostname !== 'res.cloudinary.com') {
+                    throw new Error('Invalid host');
+                  }
+                  const segments = urlObj.pathname.split('/').filter(Boolean);
+                  if (segments[0] !== cloudName || segments[1] !== 'raw' || segments[2] !== 'upload') {
+                    throw new Error('Invalid path');
+                  }
+                  const uploadIdx = segments.indexOf('upload');
+                  const remainder = segments.slice(uploadIdx + 1);
+                  if (remainder[0] && remainder[0].startsWith('v') && /\d/.test(remainder[0])) {
+                    remainder.shift();
+                  }
+                  publicId = remainder.join('/');
+                }
+
+                if (!cloudName) throw new Error('Cloudinary config missing');
+
+                if (!publicId.startsWith('my_ai_uploads/')) {
+                  throw new Error('Invalid upload namespace');
+                }
+
+                if (!/^my_ai_uploads\/[a-zA-Z0-9_\-\.\/]+$/.test(publicId) || publicId.includes('..') || publicId.includes('//')) {
+                  throw new Error('Invalid characters in public_id');
+                }
+
+                const fetchUrl = `https://res.cloudinary.com/${cloudName}/raw/upload/v1/${publicId}`;
+                const res = await fetch(fetchUrl, { signal: options?.signal });
+                if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
+
+                const contentLength = res.headers.get('content-length');
+                const MAX_SIZE = 2 * 1024 * 1024; // 2MB
+                if (contentLength && parseInt(contentLength, 10) > MAX_SIZE) {
+                  throw new Error('Document exceeds 2MB limit');
+                }
+
+                if (!res.body) throw new Error('No response body');
+
+                const reader = res.body.getReader();
+                const chunks = [];
+                let downloaded = 0;
+
+                while (true) {
+                  const { done, value } = await reader.read();
+                  if (done) break;
+                  if (value) {
+                    downloaded += value.length;
+                    if (downloaded > MAX_SIZE) {
+                      reader.cancel().catch(() => {});
+                      throw new Error('Document exceeds 2MB limit during download');
+                    }
+                    chunks.push(value);
+                  }
+                }
+
+                const totalArray = new Uint8Array(downloaded);
+                let offset = 0;
+                for (const chunk of chunks) {
+                  totalArray.set(chunk, offset);
+                  offset += chunk.length;
+                }
+
+                const rawContent = Buffer.from(totalArray).toString('utf-8');
+                const isHtml = attType === 'html' || att.original_name?.endsWith('.html') || att.original_name?.endsWith('.htm');
+                const docName = sanitizeFilename(att.original_name || (isHtml ? 'page.html' : 'document.txt'));
+
+                if (isHtml) {
+                  const sanitized = sanitizeHtmlToText(rawContent);
+                  parts.push({ text: wrapDocumentContext(docName, 'HTML', sanitized) });
+                } else {
+                  const truncated = truncateExtractedText(rawContent);
+                  parts.push({ text: wrapDocumentContext(docName, 'Text', truncated) });
+                }
+
+                docCount++;
+                docSuccessCount++;
+              } catch (err) {
+                const isAbort = err instanceof Error && (err.name === 'AbortError' || err.message === 'AbortError');
+                if (isAbort) throw err;
+
+                console.error('Document fetch error:', err);
+                parts.push({ text: '[One attached document could not be loaded.]' });
+                docFailCount++;
               }
             }
           }
 
-          if (hasTriedImages && successCount === 0 && failCount > 0) {
+          if (hasTriedImages && imageSuccessCount === 0 && imageFailCount > 0) {
             allImagesFailed = true;
+          }
+          if (hasTriedDocuments && docSuccessCount === 0 && docFailCount > 0) {
+            allDocsFailed = true;
           }
         }
 
         if (msg.content?.trim()) {
           parts.push({ text: msg.content });
-        } else if (parts.length > 0 && !allImagesFailed) {
-          parts.push({ text: '[Image attached. Please analyze or describe this image.]' });
+        } else if (parts.length > 0 && !allImagesFailed && !allDocsFailed) {
+          const firstAtt = msg.metadata?.attachments?.[0];
+          const firstType = firstAtt?.type || 'image';
+          const firstName = firstAtt?.original_name || 'attachment';
+
+          if (firstType === 'image') {
+            parts.push({ text: '[Image attached. Please analyze or describe this image.]' });
+          } else {
+            parts.push({ text: getEmptyPromptFallback(firstType, firstName) });
+          }
         }
 
-        if (i === messages.length - 1 && !msg.content?.trim() && allImagesFailed) {
-          throw new Error('All attached images failed to load. Please try again.');
+        if (i === messages.length - 1 && !msg.content?.trim()) {
+          if (hasTriedImages && allImagesFailed && !hasTriedDocuments) {
+            throw new Error('All attached images failed to load. Please try again.');
+          }
+          if (hasTriedDocuments && allDocsFailed && !hasTriedImages) {
+            throw new Error('All attached documents failed to load. Please try again.');
+          }
+          if ((hasTriedImages || hasTriedDocuments) && (allImagesFailed || allDocsFailed)) {
+            throw new Error('All attached files failed to load. Please try again.');
+          }
         }
 
         if (parts.length > 0) {

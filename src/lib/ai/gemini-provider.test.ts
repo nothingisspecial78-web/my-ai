@@ -490,4 +490,129 @@ describe('GeminiProvider', () => {
     expect(userTurn1.role).toBe('user');
     expect(userTurn1.parts.some((p: { text?: string }) => p.text === '[Image attached. Please analyze or describe this image.]')).toBe(true);
   });
+
+  it('25. Valid PDF + text prompt passes inlineData with application/pdf', async () => {
+    const messages: Message[] = [{
+      id: '1', role: 'user', content: 'Summarize this PDF', created_at: new Date(), conversation_id: '1',
+      metadata: { attachments: [{ type: 'pdf', url: 'https://res.cloudinary.com/testcloud/raw/upload/v1/my_ai_uploads/documents/report.pdf', public_id: 'my_ai_uploads/documents/report.pdf', original_name: 'report.pdf' }] }
+    }];
+
+    (global.fetch as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(createMockResponse({
+      contentType: 'application/pdf',
+      bodyChunks: [Buffer.from('%PDF-1.4 test document')]
+    }));
+
+    const generator = provider.generateStream(messages);
+    for await (const chunk of generator) { void chunk; }
+
+    expect(global.fetch).toHaveBeenCalledWith('https://res.cloudinary.com/testcloud/raw/upload/v1/my_ai_uploads/documents/report.pdf', expect.any(Object));
+    const callArgs = mockGenerateContentStream.mock.calls[0][0];
+    const parts = callArgs.contents[0].parts;
+
+    expect(parts.some((p: { inlineData?: { mimeType: string; data: string } }) => p.inlineData?.mimeType === 'application/pdf')).toBe(true);
+    expect(parts.some((p: { text?: string }) => p.text === 'Summarize this PDF')).toBe(true);
+  });
+
+  it('26. PDF-only prompt generates PDF fallback instruction', async () => {
+    const messages: Message[] = [{
+      id: '1', role: 'user', content: '', created_at: new Date(), conversation_id: '1',
+      metadata: { attachments: [{ type: 'pdf', url: 'https://res.cloudinary.com/testcloud/raw/upload/v1/my_ai_uploads/documents/report.pdf', public_id: 'my_ai_uploads/documents/report.pdf', original_name: 'report.pdf' }] }
+    }];
+
+    (global.fetch as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(createMockResponse({
+      contentType: 'application/pdf',
+      bodyChunks: [Buffer.from('%PDF-1.4 test document')]
+    }));
+
+    const generator = provider.generateStream(messages);
+    for await (const chunk of generator) { void chunk; }
+
+    const callArgs = mockGenerateContentStream.mock.calls[0][0];
+    const parts = callArgs.contents[0].parts;
+    expect(parts.some((p: { text?: string }) => p.text?.includes('Please analyze and summarize this document'))).toBe(true);
+  });
+
+  it('27. Valid TXT document wraps extracted text with DATA boundaries', async () => {
+    const messages: Message[] = [{
+      id: '1', role: 'user', content: 'What is inside?', created_at: new Date(), conversation_id: '1',
+      metadata: { attachments: [{ type: 'text', url: 'https://res.cloudinary.com/testcloud/raw/upload/v1/my_ai_uploads/documents/notes.txt', public_id: 'my_ai_uploads/documents/notes.txt', original_name: 'notes.txt' }] }
+    }];
+
+    (global.fetch as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(createMockResponse({
+      contentType: 'text/plain',
+      bodyChunks: [Buffer.from('Line 1: secret notes\nLine 2: data')]
+    }));
+
+    const generator = provider.generateStream(messages);
+    for await (const chunk of generator) { void chunk; }
+
+    const callArgs = mockGenerateContentStream.mock.calls[0][0];
+    const parts = callArgs.contents[0].parts;
+    const docPart = parts.find((p: { text?: string }) => p.text?.includes('ATTACHED DOCUMENT'));
+
+    expect(docPart).toBeDefined();
+    expect(docPart.text).toContain('<<<DATA_START>>>');
+    expect(docPart.text).toContain('Line 1: secret notes');
+    expect(docPart.text).toContain('<<<DATA_END>>>');
+  });
+
+  it('28. Valid HTML document sanitizes scripts and wraps with DATA boundaries', async () => {
+    const maliciousHtml = '<h1>Page Title</h1><script>alert("XSS")</script><p>Clean content</p>';
+    const messages: Message[] = [{
+      id: '1', role: 'user', content: 'Check this page', created_at: new Date(), conversation_id: '1',
+      metadata: { attachments: [{ type: 'html', url: 'https://res.cloudinary.com/testcloud/raw/upload/v1/my_ai_uploads/documents/page.html', public_id: 'my_ai_uploads/documents/page.html', original_name: 'page.html' }] }
+    }];
+
+    (global.fetch as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(createMockResponse({
+      contentType: 'text/html',
+      bodyChunks: [Buffer.from(maliciousHtml)]
+    }));
+
+    const generator = provider.generateStream(messages);
+    for await (const chunk of generator) { void chunk; }
+
+    const callArgs = mockGenerateContentStream.mock.calls[0][0];
+    const parts = callArgs.contents[0].parts;
+    const docPart = parts.find((p: { text?: string }) => p.text?.includes('ATTACHED DOCUMENT'));
+
+    expect(docPart).toBeDefined();
+    expect(docPart.text).toContain('<<<DATA_START>>>');
+    expect(docPart.text).toContain('Clean content');
+    expect(docPart.text).not.toContain('<script');
+    expect(docPart.text).not.toContain('alert');
+    expect(docPart.text).toContain('<<<DATA_END>>>');
+  });
+
+  it('29. Multi-attachment message (Image + PDF)', async () => {
+    const messages: Message[] = [{
+      id: '1', role: 'user', content: 'Compare these two', created_at: new Date(), conversation_id: '1',
+      metadata: {
+        attachments: [
+          { type: 'image', url: 'https://res.cloudinary.com/testcloud/image/upload/v1/my_ai_uploads/chart.png', public_id: 'my_ai_uploads/chart.png' },
+          { type: 'pdf', url: 'https://res.cloudinary.com/testcloud/raw/upload/v1/my_ai_uploads/documents/doc.pdf', public_id: 'my_ai_uploads/documents/doc.pdf', original_name: 'doc.pdf' }
+        ]
+      }
+    }];
+
+    (global.fetch as unknown as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce(createMockResponse({
+        contentType: 'image/png',
+        bodyChunks: [new Uint8Array([1, 2, 3])]
+      }))
+      .mockResolvedValueOnce(createMockResponse({
+        contentType: 'application/pdf',
+        bodyChunks: [Buffer.from('%PDF-1.4')]
+      }));
+
+    const generator = provider.generateStream(messages);
+    for await (const chunk of generator) { void chunk; }
+
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+    const callArgs = mockGenerateContentStream.mock.calls[0][0];
+    const parts = callArgs.contents[0].parts;
+
+    expect(parts.some((p: { inlineData?: { mimeType: string } }) => p.inlineData?.mimeType === 'image/png')).toBe(true);
+    expect(parts.some((p: { inlineData?: { mimeType: string } }) => p.inlineData?.mimeType === 'application/pdf')).toBe(true);
+    expect(parts.some((p: { text?: string }) => p.text === 'Compare these two')).toBe(true);
+  });
 });
