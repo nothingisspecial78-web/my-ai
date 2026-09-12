@@ -9,6 +9,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   interactiveWidget: "resizes-content",
+  themeColor: "#060e20",
 };
 
 const appUrl =
@@ -22,6 +23,7 @@ export const metadata: Metadata = {
   title: "Before You Click — AI Assistant & Digital Safety",
   description: "An intelligent AI assistant that helps you think, understand, create, and stay safer before you click.",
   applicationName: "Before You Click",
+  manifest: "/manifest.webmanifest",
   openGraph: {
     title: "Before You Click — AI Assistant & Digital Safety",
     description: "An intelligent AI assistant that helps you think, understand, create, and stay safer before you click.",
@@ -46,10 +48,12 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       { url: "/icon.png", type: "image/png" },
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
       { url: "/logo.png", type: "image/png" },
     ],
     apple: [
-      { url: "/icon.png", type: "image/png" },
+      { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
     ],
   },
 };
