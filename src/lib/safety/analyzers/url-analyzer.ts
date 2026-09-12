@@ -214,7 +214,7 @@ export class UrlAnalyzer implements SafetyAnalyzer {
       findings.push({
         id: crypto.randomUUID(),
         type: 'suspicious_domain',
-        severity: 'medium',
+        severity: 'low',
         title: 'Unusually Long Hostname',
         description: `The hostname is ${hostname.length} characters long, which is statistically uncommon for legitimate commercial domains.`,
         evidenceIds: [evidenceId],
@@ -228,7 +228,7 @@ export class UrlAnalyzer implements SafetyAnalyzer {
       findings.push({
         id: crypto.randomUUID(),
         type: 'suspicious_domain',
-        severity: 'medium',
+        severity: 'low',
         title: 'Multiple Hyphens in Hostname',
         description: 'The domain contains multiple consecutive hyphens, frequently seen in spoofed registration strings.',
         evidenceIds: [evidenceId],
@@ -259,7 +259,7 @@ export class UrlAnalyzer implements SafetyAnalyzer {
       findings.push({
         id: crypto.randomUUID(),
         type: 'suspicious_domain',
-        severity: 'medium',
+        severity: 'low',
         title: `Uncommon or High-Risk TLD (.${tld})`,
         description: `The top-level domain .${tld} has elevated statistical abuse rates. Note: this is a risk signal, not definitive proof of maliciousness.`,
         evidenceIds: [evidenceId],
@@ -285,9 +285,18 @@ export class UrlAnalyzer implements SafetyAnalyzer {
       });
     } else {
       // Standard exact brand check on unofficial domains
+      const isTrustedContentHost =
+        hostname === 'github.com' ||
+        hostname.endsWith('.github.com') ||
+        hostname === 'gitlab.com' ||
+        hostname === 'wikipedia.org' ||
+        hostname.endsWith('.wikipedia.org') ||
+        hostname === 'npmjs.com' ||
+        hostname === 'pypi.org';
+
       for (const brand of UrlAnalyzer.BRAND_KEYWORDS) {
         const brandInHost = hostname.includes(brand);
-        const brandInPath = pathname.includes(`/${brand}`);
+        const brandInPath = !isTrustedContentHost && pathname.includes(`/${brand}`);
         if (brandInHost || brandInPath) {
           const isOfficial = hostname === `${brand}.com` || hostname.endsWith(`.${brand}.com`);
           if (!isOfficial) {
@@ -479,13 +488,26 @@ export class UrlAnalyzer implements SafetyAnalyzer {
 
     for (const brand of UrlAnalyzer.BRAND_KEYWORDS) {
       if (normalized.includes(brand)) {
-        // If the brand is detected in normalized form, check if the original had a character substitution
-        const brandL1 = brand.replace(/l/g, '1').replace(/o/g, '0');
-        if (full.includes(brandL1) || full.includes(brand.replace(/l/g, '1')) || full.includes(brand.replace(/o/g, '0'))) {
-          // It's a genuine substitution pattern
+        const hasL = brand.includes('l');
+        const hasO = brand.includes('o');
+        const hasS = brand.includes('s');
+        const hasW = brand.includes('w');
+
+        const p1 = hasL ? brand.replace(/l/g, '1') : '';
+        const p0 = hasO ? brand.replace(/o/g, '0') : '';
+        const p5 = hasS ? brand.replace(/s/g, '5') : '';
+        const pW = hasW ? brand.replace(/w/g, 'vv') : '';
+
+        const matchedPattern =
+          (p1 && full.includes(p1) && p1) ||
+          (p0 && full.includes(p0) && p0) ||
+          (p5 && full.includes(p5) && p5) ||
+          (pW && full.includes(pW) && pW);
+
+        if (matchedPattern) {
           const isOfficial = hostname === `${brand}.com` || hostname.endsWith(`.${brand}.com`);
           if (!isOfficial) {
-            return { brand, pattern: brandL1 };
+            return { brand, pattern: matchedPattern };
           }
         }
       }

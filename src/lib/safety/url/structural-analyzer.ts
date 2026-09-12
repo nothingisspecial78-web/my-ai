@@ -289,9 +289,18 @@ export class UrlStructuralAnalyzer {
       });
     } else {
       // Check for exact brand keyword on non-official domain
+      const isTrustedContentHost =
+        hostname === 'github.com' ||
+        hostname.endsWith('.github.com') ||
+        hostname === 'gitlab.com' ||
+        hostname === 'wikipedia.org' ||
+        hostname.endsWith('.wikipedia.org') ||
+        hostname === 'npmjs.com' ||
+        hostname === 'pypi.org';
+
       for (const brand of UrlStructuralAnalyzer.BRAND_KEYWORDS) {
         const brandInHost = hostname.includes(brand);
-        const brandInPath = pathname.includes(`/${brand}`);
+        const brandInPath = !isTrustedContentHost && pathname.includes(`/${brand}`);
         if (brandInHost || brandInPath) {
           const isOfficial = hostname === `${brand}.com` || hostname.endsWith(`.${brand}.com`);
           if (!isOfficial) {
@@ -438,15 +447,26 @@ export class UrlStructuralAnalyzer {
 
     for (const brand of UrlStructuralAnalyzer.BRAND_KEYWORDS) {
       if (normalized.includes(brand)) {
-        const brandL1 = brand.replace(/l/g, '1').replace(/o/g, '0');
-        if (
-          full.includes(brandL1) ||
-          full.includes(brand.replace(/l/g, '1')) ||
-          full.includes(brand.replace(/o/g, '0'))
-        ) {
+        const hasL = brand.includes('l');
+        const hasO = brand.includes('o');
+        const hasS = brand.includes('s');
+        const hasW = brand.includes('w');
+
+        const p1 = hasL ? brand.replace(/l/g, '1') : '';
+        const p0 = hasO ? brand.replace(/o/g, '0') : '';
+        const p5 = hasS ? brand.replace(/s/g, '5') : '';
+        const pW = hasW ? brand.replace(/w/g, 'vv') : '';
+
+        const matchedPattern =
+          (p1 && full.includes(p1) && p1) ||
+          (p0 && full.includes(p0) && p0) ||
+          (p5 && full.includes(p5) && p5) ||
+          (pW && full.includes(pW) && pW);
+
+        if (matchedPattern) {
           const isOfficial = hostname === `${brand}.com` || hostname.endsWith(`.${brand}.com`);
           if (!isOfficial) {
-            return { brand, pattern: brandL1 };
+            return { brand, pattern: matchedPattern };
           }
         }
       }

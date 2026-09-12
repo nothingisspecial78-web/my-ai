@@ -61,7 +61,6 @@ export class RiskEngine {
     let highCount = 0;
     let mediumCount = 0;
     let lowCount = 0;
-    let infoCount = 0;
 
     for (const finding of findings) {
       switch (finding.severity) {
@@ -78,40 +77,48 @@ export class RiskEngine {
           lowCount++;
           break;
         case 'info':
-          infoCount++;
+          // Info findings are neutral evidence and do not contribute to risk score
           break;
       }
     }
 
-    // Calculate heuristic score (0 - 100)
-    // Critical: 35 pts each, High: 20 pts each, Medium: 10 pts each, Low: 3 pts each
-    const rawScore =
-      criticalCount * 35 +
+    // Calculate deterministic risk score (0 - 100)
+    // Critical: 50 pts each
+    // High: 20 pts each
+    // Medium: 10 pts each
+    // Low: 3 pts each
+    // Info: 0 pts
+    let rawScore =
+      criticalCount * 50 +
       highCount * 20 +
       mediumCount * 10 +
-      lowCount * 3 +
-      infoCount * 1;
+      lowCount * 3;
+
+    // Guaranteed floor thresholds mapped to severity:
+    // Any critical finding guarantees >= 50
+    // Any high finding guarantees >= 25
+    // Any medium finding or 2+ low findings guarantee >= 10
+    if (criticalCount > 0) {
+      rawScore = Math.max(50, rawScore);
+    } else if (highCount > 0) {
+      rawScore = Math.max(25, rawScore);
+    } else if (mediumCount > 0 || lowCount >= 2) {
+      rawScore = Math.max(10, rawScore);
+    }
+
     const score = Math.min(100, Math.max(0, rawScore));
 
-    // Determine deterministic risk level based on calibrated severity patterns
-    // Requirement:
-    // - Single weak signal (e.g. HTTP alone, shortened URL alone, urgency alone) -> low
-    // - OTP request or multiple medium signals -> medium or high depending on context
-    // - Phishing combinations (e.g. Credential + suspicious URL, or OTP + bank + urgency) -> high
-    // - Critical remains rare (requires explicit critical severity finding like exposed secrets or active multi-vector credential theft)
+    // Pure mathematical risk-level mapping:
+    // score < 10   → low
+    // score < 25   → medium
+    // score < 50   → high
+    // score >= 50  → critical
     let riskLevel: RiskLevel;
-
-    const hasCriticalSeverity = criticalCount > 0;
-    const hasPhishingCombo =
-      (highCount >= 2) ||
-      (highCount >= 1 && (mediumCount >= 1 || lowCount >= 2)) ||
-      (mediumCount >= 2 && score >= 25);
-
-    if (hasCriticalSeverity || (highCount >= 2 && score >= 75 && findings.some(f => f.type === 'otp_request' || f.type === 'credential_request' || f.type === 'recovery_phrase_request') && findings.some(f => f.type === 'lookalike_brand' || f.type === 'host_confusion'))) {
+    if (score >= 50) {
       riskLevel = 'critical';
-    } else if (hasPhishingCombo || highCount >= 1) {
+    } else if (score >= 25) {
       riskLevel = 'high';
-    } else if (mediumCount >= 1 || lowCount >= 2) {
+    } else if (score >= 10) {
       riskLevel = 'medium';
     } else {
       riskLevel = 'low';
@@ -226,11 +233,38 @@ export class RiskEngine {
         });
       }
 
-      if (f.type === 'threat_coercion' || f.type === 'authority_impersonation' || f.type === 'urgency_language') {
+      if (f.type === 'job_scam') {
+        addRec({
+          action: 'do_not_pay_advance_fee',
+          title: 'Do Not Pay Upfront Employment Fees',
+          description: 'Legitimate employers never demand registration fees, task security deposits, or upfront payments for job placement.',
+          priority: 'high',
+        });
+      }
+
+      if (f.type === 'delivery_scam') {
+        addRec({
+          action: 'verify_courier_delivery',
+          title: 'Verify Delivery via Official Courier App',
+          description: 'Do not pay redelivery or customs fees via unverified links. Check your tracking number directly on the official courier website.',
+          priority: 'high',
+        });
+      }
+
+      if (f.type === 'threat_coercion' || f.type === 'authority_impersonation' || f.type === 'impersonation_claim' || f.type === 'urgency_language') {
         addRec({
           action: 'contact_official_source',
           title: 'Contact Official Organization via Trusted Channels',
           description: 'Verify unexpected account suspension claims or notices through official portals or customer support.',
+          priority: 'medium',
+        });
+      }
+
+      if (f.type === 'social_engineering') {
+        addRec({
+          action: 'pause_and_verify',
+          title: 'Pause and Verify Before Acting',
+          description: 'Social engineering relies on panic, urgency, or artificial pressure. Take time to independently verify claims.',
           priority: 'medium',
         });
       }

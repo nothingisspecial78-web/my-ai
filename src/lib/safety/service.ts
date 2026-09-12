@@ -73,7 +73,8 @@ export class SafetyService {
 
     // 3.1. Live URL Reputation Intelligence (Phase 4.8B)
     const activeProviders = reputationRegistry.getActive();
-    if (activeProviders.length > 0) {
+    const alreadyHasReputation = allFindings.some(f => f.type.startsWith('reputation_'));
+    if (activeProviders.length > 0 && !alreadyHasReputation) {
       let targetUrl: string | null = null;
       if (normalizedInput.type === 'url') {
         targetUrl = normalizedInput.rawContent.trim();
@@ -159,6 +160,18 @@ export class SafetyService {
   ): Promise<import('./url').UrlIntelligenceResult> {
     const { UrlIntelligenceEngine } = await import('./url');
     return UrlIntelligenceEngine.analyze(rawUrl, options);
+  }
+
+  /**
+   * Dedicated Scam Message Intelligence entry point (Phase 6.2).
+   * Executes deterministic linguistic analysis, social engineering detection,
+   * entity extraction, contact parsing, and Zero-Fetch embedded URL analysis.
+   */
+  static async analyzeScamMessage(
+    rawMessage: string
+  ): Promise<import('./scam').ScamAnalysisResult> {
+    const { ScamEngine } = await import('./scam');
+    return ScamEngine.analyze(rawMessage);
   }
 
   /**

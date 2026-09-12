@@ -341,11 +341,11 @@ export class UrlIntelligenceEngine {
 
     // Risk level determination
     let riskLevel: RiskLevel;
-    if (criticalCount > 0 || (highCount >= 2 && riskScore >= 60)) {
+    if (criticalCount > 0 || riskScore >= 50) {
       riskLevel = 'critical';
-    } else if (highCount >= 1 || (mediumCount >= 2 && riskScore >= 25)) {
+    } else if (highCount > 0 || riskScore >= 25) {
       riskLevel = 'high';
-    } else if (mediumCount >= 1 || lowCount >= 2 || riskScore >= 10) {
+    } else if (mediumCount > 0 || riskScore >= 10) {
       riskLevel = 'medium';
     } else if (allProvidersUnavailable && findings.length === 0) {
       // Combination D: Both configured providers unavailable and no structural signals

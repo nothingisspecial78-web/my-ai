@@ -10,12 +10,25 @@ import {
   Info,
   Globe,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Building2,
+  Zap
 } from 'lucide-react';
 import { SafetyReport, RiskLevel } from '@/lib/safety/types';
 import { cn } from '@/lib/utils';
 import { ThemeDefinition } from '@/lib/theme/types';
 import { getThemePresentation } from '@/lib/theme/catalog';
+
+const TACTIC_LABELS: Record<string, string> = {
+  urgency: 'Artificial Urgency',
+  fear_threat: 'Threat & Coercion',
+  authority_pressure: 'Authority Pressure',
+  credential_pressure: 'Credential / OTP Request',
+  reward_temptation: 'Reward / Lottery Lure',
+  scarcity: 'Artificial Scarcity',
+  secrecy: 'Secrecy / Channel Bypass',
+  financial_pressure: 'Upfront Payment Request',
+};
 
 interface SafetyAnalysisCardProps {
   report: SafetyReport;
@@ -158,6 +171,56 @@ export function SafetyAnalysisCard({ report, className, themeSlug, theme }: Safe
                 <Globe className="h-4 w-4 text-muted-foreground shrink-0" aria-hidden="true" />
                 <span className="font-semibold text-muted-foreground shrink-0">Target URL:</span>
                 <span className="font-mono text-foreground break-all">{targetUrl}</span>
+              </div>
+            );
+          })()}
+
+          {/* Claimed Identity & Social Engineering Tactics (Phase 6.2) */}
+          {(() => {
+            const scamEvidence = (evidence || []).find(
+              e => e.sourceType === 'content_analysis' && Array.isArray(e.data?.detectedTactics)
+            );
+            if (!scamEvidence) return null;
+
+            const tactics = (scamEvidence.data?.detectedTactics as string[]) || [];
+            const entities = (scamEvidence.data?.claimedEntities as string[]) || [];
+
+            if (tactics.length === 0 && entities.length === 0) return null;
+
+            return (
+              <div className="space-y-2 rounded-lg border border-border/60 bg-muted/30 p-3 text-xs">
+                {entities.length > 0 && (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-semibold text-muted-foreground flex items-center gap-1">
+                      <Building2 className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+                      Claimed Organization:
+                    </span>
+                    {entities.map((ent, idx) => (
+                      <span
+                        key={idx}
+                        className="font-medium px-2 py-0.5 rounded bg-background border border-border text-foreground"
+                      >
+                        {ent}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {tactics.length > 0 && (
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="font-semibold text-muted-foreground flex items-center gap-1">
+                      <Zap className="h-3.5 w-3.5 text-amber-500" aria-hidden="true" />
+                      {isSecurity ? 'Social Engineering Tactics:' : 'Warning Signs Detected:'}
+                    </span>
+                    {tactics.map((tactic, idx) => (
+                      <span
+                        key={idx}
+                        className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+                      >
+                        {TACTIC_LABELS[tactic] || tactic}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             );
           })()}
