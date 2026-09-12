@@ -145,6 +145,13 @@ export function ChatComposer({ onSend, disabled, enterToSend = true }: ChatCompo
       if (textareaRef.current) {
         textareaRef.current.style.height = 'auto';
       }
+
+      if (typeof window !== 'undefined') {
+        if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+          textareaRef.current?.blur();
+        }
+        window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      }
     }
   };
 

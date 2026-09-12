@@ -23,6 +23,9 @@ export default function ChatEmptyPage() {
   const handleSend = async (text: string, attachments?: Attachment[]) => {
     if ((!text.trim() && (!attachments || attachments.length === 0)) || isNavigating) return;
     setIsNavigating(true);
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    }
     try {
       const { createConversation, createMessage } = await import('@/lib/database');
       
@@ -55,12 +58,12 @@ export default function ChatEmptyPage() {
   };
 
   return (
-    <div data-theme={activeTheme.slug} className="flex h-full w-full flex-col relative bg-[var(--theme-bg)] transition-colors">
-      <div className="flex-1 overflow-y-auto w-full">
+    <div data-theme={activeTheme.slug} className="flex h-full w-full flex-col relative bg-[var(--theme-bg)] transition-colors overflow-hidden">
+      <div className="flex-1 min-h-0 overflow-y-auto w-full">
         <WelcomeScreen onSuggestionClick={handleSend} disabled={isNavigating} theme={activeTheme} />
       </div>
 
-      <div className="mt-auto w-full bg-gradient-to-t from-[var(--theme-bg)] via-[var(--theme-bg)] to-transparent">
+      <div className="mt-auto w-full bg-gradient-to-t from-[var(--theme-bg)] via-[var(--theme-bg)] to-transparent shrink-0">
         <div className="max-w-3xl mx-auto px-4 pb-2 flex justify-start">
           <ThemeSelector 
             selectedThemeId={selectedThemeId} 

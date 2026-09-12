@@ -412,7 +412,7 @@ export function ChatClient({ conversation, initialMessages, theme }: ChatClientP
   };
 
   return (
-    <div data-theme={theme?.slug || 'general'} className="flex h-full w-full flex-col relative bg-[var(--theme-bg)] transition-colors">
+    <div data-theme={theme?.slug || 'general'} className="flex h-full w-full flex-col relative bg-[var(--theme-bg)] transition-colors overflow-hidden">
       <header className="sticky top-0 z-10 flex h-14 items-center justify-between bg-white/95 dark:bg-gray-900/95 px-4 backdrop-blur-md hidden md:flex border-b border-gray-100 dark:border-gray-800">
         <div className="flex items-center gap-3 min-w-0">
           <div className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 px-2 py-1.5 rounded-lg transition-colors min-w-0">
@@ -461,7 +461,7 @@ export function ChatClient({ conversation, initialMessages, theme }: ChatClientP
         <ThemeBadge theme={theme} />
       </div>
 
-      <div className="flex-1 overflow-y-auto w-full">
+      <div className="flex-1 min-h-0 overflow-y-auto w-full">
         {messages.length === 0 ? (
           <WelcomeScreen onSuggestionClick={handleSend} disabled={isSending} theme={theme} />
         ) : (
@@ -513,7 +513,7 @@ export function ChatClient({ conversation, initialMessages, theme }: ChatClientP
         )}
       </div>
 
-      <div className="w-full bg-gradient-to-t from-[var(--theme-bg)] via-[var(--theme-bg)] to-transparent mt-auto">
+      <div className="w-full bg-gradient-to-t from-[var(--theme-bg)] via-[var(--theme-bg)] to-transparent mt-auto shrink-0">
         <ChatComposer 
           onSend={handleSend} 
           disabled={isSending}
