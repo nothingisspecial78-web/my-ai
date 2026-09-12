@@ -77,9 +77,15 @@ export class InputClassifier {
 
     const trimmed = input.rawContent.trim();
 
-    // 4. Pure URL detection (strict single token with no whitespace)
+    // 4. Pure URL detection & natural URL query detection
     if (!/\s/.test(trimmed)) {
       if (this.URL_REGEX.test(trimmed) || /^https?:\/\//i.test(trimmed) || /^www\.[a-zA-Z0-9\-]+\.[a-zA-Z]{2,}/i.test(trimmed)) {
+        return 'url';
+      }
+    } else {
+      // Natural URL check inquiry (e.g. "Check this: https://example.com", "Is this website safe: https://example.com")
+      const urlIntentRegex = /^(?:check(?:\s+this)?(?:\s+(?:url|link|site|website))?|is\s+this(?:\s+(?:url|link|site|website))?\s+safe|verify(?:\s+this)?(?:\s+(?:url|link|site|website))?|scan(?:\s+this)?(?:\s+(?:url|link|site|website))?|inspect(?:\s+this)?(?:\s+(?:url|link|site|website))?)[:\s]+(?:https?:\/\/[^\s]+|www\.[^\s]+)$/i;
+      if (urlIntentRegex.test(trimmed)) {
         return 'url';
       }
     }

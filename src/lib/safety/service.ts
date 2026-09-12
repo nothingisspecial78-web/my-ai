@@ -149,6 +149,19 @@ export class SafetyService {
   }
 
   /**
+   * Dedicated URL Intelligence entry point (Phase 6.1).
+   * Executes complete URL normalization, SSRF protection, deterministic structural analysis,
+   * live reputation lookup, and calibrated scoring.
+   */
+  static async analyzeUrl(
+    rawUrl: string,
+    options?: import('./url').UrlIntelligenceOptions
+  ): Promise<import('./url').UrlIntelligenceResult> {
+    const { UrlIntelligenceEngine } = await import('./url');
+    return UrlIntelligenceEngine.analyze(rawUrl, options);
+  }
+
+  /**
    * Generates a readable, deterministic markdown response when Gemini is unavailable.
    */
   static generateFallbackResponse(report: SafetyReport): string {

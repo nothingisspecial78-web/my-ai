@@ -148,6 +148,20 @@ export function SafetyAnalysisCard({ report, className, themeSlug, theme }: Safe
       {/* Expandable details */}
       {isExpanded && (
         <div id="safety-analysis-details" className="p-4 space-y-4 text-sm bg-background/60">
+          {/* Target URL if URL intelligence */}
+          {(() => {
+            const urlEvidence = (evidence || []).find(e => e.sourceType === 'url_analysis');
+            const targetUrl = (urlEvidence?.data?.displayUrl as string) || (urlEvidence?.data?.rawUrl as string);
+            if (!targetUrl) return null;
+            return (
+              <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-xs">
+                <Globe className="h-4 w-4 text-muted-foreground shrink-0" aria-hidden="true" />
+                <span className="font-semibold text-muted-foreground shrink-0">Target URL:</span>
+                <span className="font-mono text-foreground break-all">{targetUrl}</span>
+              </div>
+            );
+          })()}
+
           {/* Summary */}
           {summary && (
             <p className="text-xs text-muted-foreground leading-relaxed break-words [overflow-wrap:anywhere]">
