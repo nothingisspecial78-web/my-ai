@@ -20,9 +20,17 @@ import {
   Sparkles,
   EyeOff,
   FileImage,
+  GitMerge,
+  Layers,
+  Lock,
+  Loader2,
   type LucideIcon
 } from 'lucide-react';
 import { SafetyReport, RiskLevel, FindingSeverity } from '@/lib/safety/types';
+import type { 
+  UnifiedSecurityReport, 
+  ConsolidatedFinding
+} from '@/lib/safety/unified/types';
 import { cn } from '@/lib/utils';
 import { ThemeDefinition } from '@/lib/theme/types';
 import { getThemePresentation } from '@/lib/theme/catalog';
@@ -53,6 +61,22 @@ const CATEGORY_LABELS: Record<string, string> = {
   urgent_action_required: 'Urgent Action Pressure',
   suspicious_payment_slip: 'Suspicious Payment Slip',
   general_visual_fraud: 'Visual Deception Cue',
+};
+
+const PRIVACY_TAG_LABELS: Record<string, string> = {
+  redacted_api_key: 'API Key Redacted',
+  redacted_auth_token: 'Bearer Token Redacted',
+  redacted_password: 'Password Redacted',
+  redacted_otp: 'OTP Redacted',
+  redacted_wifi_credentials: 'Wi-Fi Password Redacted',
+  redacted_otpauth_secret: '2FA / TOTP Secret Redacted',
+  redacted_private_key: 'Private Key Redacted',
+  redacted_db_uri: 'Database URI Redacted',
+  redacted_url_params: 'Sensitive Query Params Redacted',
+  redacted_credit_card: 'Payment Card Redacted',
+  redacted_seed_phrase: 'Crypto Recovery Key Redacted',
+  redacted_gps_coordinates: 'GPS Coordinates Redacted',
+  redacted_device_id: 'Device ID Redacted',
 };
 
 export type FindingCategory = 'safety' | 'security' | 'authenticity' | 'privacy';
@@ -144,7 +168,7 @@ export function categorizeFinding(f: { type: string; title?: string; metadata?: 
 
 /**
  * Enforces epistemic humility on display strings:
- * Never displays absolute claims like "This image is AI-generated" or "This image is fake".
+ * Never displays absolute claims like "This image is AI-generated", "This image is fake", or "Proven authentic".
  */
 export function enforceCautiousLanguage(text: string): string {
   if (!text) return text;
@@ -155,7 +179,13 @@ export function enforceCautiousLanguage(text: string): string {
     .replace(/\b(?:this\s+image\s+is|is)\s+definitely\s+manipulated\b/gi, 'shows possible manipulation indicators')
     .replace(/\b(?:this\s+image\s+is|is)\s+fake\b/gi, 'shows possible manipulation indicators')
     .replace(/\bconfirmed\s+AI\b/gi, 'possible synthetic media indicators')
-    .replace(/\bproven\s+fake\b/gi, 'possible manipulation indicators');
+    .replace(/\bproven\s+fake\b/gi, 'possible manipulation indicators')
+    .replace(/\breal\s+image\b/gi, 'image without synthetic anomalies')
+    .replace(/\bauthentic\s+image\b/gi, 'image without overt manipulation flags')
+    .replace(/\bproven\s+authentic\b/gi, 'exhibits typical photographic characteristics')
+    .replace(/\bdefinitely\s+human\b/gi, 'exhibits typical human photographic markers')
+    .replace(/\bconfirmed\s+genuine\b/gi, 'no overt tampering detected')
+    .replace(/\b100%\s+safe\b/gi, 'no immediate threats detected');
 }
 
 /**
@@ -182,8 +212,8 @@ function formatBytes(bytes?: number): string | null {
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 }
 
-interface SafetyAnalysisCardProps {
-  report: SafetyReport;
+export interface SafetyAnalysisCardProps {
+  report: SafetyReport | UnifiedSecurityReport;
   className?: string;
   themeSlug?: string;
   theme?: ThemeDefinition;
@@ -217,6 +247,15 @@ export function SafetyAnalysisCard({ report, className, themeSlug, theme }: Safe
   const cardTitle = presentation.cardTitle || (isSecurity ? 'Security Inspection' : 'Safety Checkup');
 
   const { riskLevel, confidenceLevel, score, findings = [], recommendations = [], limitations = [], summary, evidence = [] } = report;
+
+  // Unified report properties duck-typing
+  const unifiedReport = (report as Partial<UnifiedSecurityReport>);
+  const primaryConcern = unifiedReport.primaryConcern;
+  const correlationSummaries = unifiedReport.correlationSummaries || [];
+  const analyzerSummaries = unifiedReport.analyzerSummaries || [];
+  const affectedEntities = unifiedReport.affectedEntities || [];
+  const privacyGuarantees = unifiedReport.privacyGuarantees || [];
+  const reportStatus = report.status;
 
   const topFinding = sortedFindings.length > 0 ? sortedFindings[0] : null;
 
@@ -355,8 +394,34 @@ export function SafetyAnalysisCard({ report, className, themeSlug, theme }: Safe
       {/* Expandable details */}
       {isExpanded && (
         <div id="safety-analysis-details" className="p-4 space-y-4 text-sm bg-background/60">
+          {/* Live Analysis in Progress Banner */}
+          {reportStatus === 'analyzing' && (
+            <div className="rounded-lg border border-blue-500/40 bg-blue-500/10 p-3 text-xs flex items-center gap-2.5">
+              <Loader2 className="h-4 w-4 text-blue-600 dark:text-blue-400 animate-spin shrink-0" aria-hidden="true" />
+              <div>
+                <span className="font-bold text-blue-800 dark:text-blue-300 block">Analysis in Progress</span>
+                <p className="text-blue-700 dark:text-blue-400 mt-0.5 leading-normal">
+                  Evaluating security signals across multi-domain intelligence analyzers...
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Partial Analysis Banner */}
+          {(reportStatus as string) === 'partial' && (
+            <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs flex items-start gap-2.5">
+              <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" aria-hidden="true" />
+              <div>
+                <span className="font-bold text-amber-800 dark:text-amber-300 block">Partial Analysis Completed</span>
+                <p className="text-amber-700 dark:text-amber-400 mt-0.5 leading-normal">
+                  One or more security analyzers could not complete inspection. Available verified findings are presented below.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Incomplete or Limited Analysis Notice */}
-          {(riskLevel === 'unknown' || report.status === 'failed') && (
+          {(riskLevel === 'unknown' || reportStatus === 'failed') && (
             <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs flex items-start gap-2.5">
               <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" aria-hidden="true" />
               <div>
@@ -368,8 +433,8 @@ export function SafetyAnalysisCard({ report, className, themeSlug, theme }: Safe
             </div>
           )}
 
-          {/* Top Priority Finding Callout (Show Most Important Finding First) */}
-          {topFinding && (topFinding.severity === 'critical' || topFinding.severity === 'high' || topFinding.severity === 'medium') && (
+          {/* Top Priority Finding / Primary Concern Callout */}
+          {topFinding && (topFinding.severity === 'critical' || topFinding.severity === 'high' || topFinding.severity === 'medium') ? (
             <div className={cn(
               'rounded-xl border p-3.5 flex flex-col gap-2 transition-all',
               topFinding.severity === 'critical'
@@ -396,12 +461,23 @@ export function SafetyAnalysisCard({ report, className, themeSlug, theme }: Safe
               </div>
               <div>
                 <h5 className="font-semibold text-foreground text-xs break-words [overflow-wrap:anywhere]">
-                  {enforceCautiousLanguage(topFinding.title)}
+                  {enforceCautiousLanguage(primaryConcern || topFinding.title)}
                 </h5>
                 <p className="text-muted-foreground text-xs mt-0.5 leading-normal break-words [overflow-wrap:anywhere]">
                   {enforceCautiousLanguage(topFinding.description)}
                 </p>
               </div>
+
+              {/* Immediate Action Callout for High/Critical Risk */}
+              {(riskLevel === 'critical' || riskLevel === 'high' || topFinding.severity === 'critical' || topFinding.severity === 'high') && (
+                <div className="flex items-center gap-2 rounded-lg bg-red-500/10 border border-red-500/20 p-2 text-xs text-red-700 dark:text-red-300 font-medium">
+                  <AlertOctagon className="h-4 w-4 shrink-0 text-red-600 dark:text-red-400" aria-hidden="true" />
+                  <span>
+                    <strong>Immediate Action:</strong> Do not interact with unverified links, submit sensitive credentials, or execute untrusted code.
+                  </span>
+                </div>
+              )}
+
               {(() => {
                 const rawSnippet = typeof topFinding.metadata?.snippet === 'string'
                   ? topFinding.metadata.snippet
@@ -419,7 +495,16 @@ export function SafetyAnalysisCard({ report, className, themeSlug, theme }: Safe
                 );
               })()}
             </div>
-          )}
+          ) : primaryConcern && (riskLevel === 'critical' || riskLevel === 'high' || riskLevel === 'medium') ? (
+            <div className="rounded-xl border border-amber-500/40 bg-amber-500/5 p-3.5 flex flex-col gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-background border border-border text-foreground w-fit">
+                Primary Concern
+              </span>
+              <p className="text-foreground text-xs font-semibold">
+                {enforceCautiousLanguage(primaryConcern)}
+              </p>
+            </div>
+          ) : null}
 
           {/* Indicators Category Breakdown Badges */}
           {findings.length > 0 && (
@@ -449,6 +534,88 @@ export function SafetyAnalysisCard({ report, className, themeSlug, theme }: Safe
                   {`Privacy: ${categoryCounts.privacy}`}
                 </span>
               )}
+            </div>
+          )}
+
+          {/* Affected Target Entities (Unified Intelligence) */}
+          {affectedEntities.length > 0 && (
+            <div className="flex items-center gap-1.5 flex-wrap text-xs rounded-lg border border-border/60 bg-muted/20 p-2">
+              <span className="font-semibold text-muted-foreground shrink-0">Affected Targets:</span>
+              {affectedEntities.map((ent, idx) => (
+                <span key={idx} className="font-mono text-[11px] px-1.5 py-0.5 rounded bg-background border border-border text-foreground">
+                  {sanitizeSnippetSafely(ent)}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Correlated Threat Intelligence Section */}
+          {correlationSummaries.length > 0 && (
+            <div className="space-y-2 rounded-xl border border-purple-500/40 bg-purple-500/5 dark:bg-purple-950/20 p-3">
+              <div className="flex items-center justify-between flex-wrap gap-1 border-b border-purple-500/20 pb-2">
+                <span className="font-bold text-xs uppercase tracking-wider text-purple-700 dark:text-purple-300 flex items-center gap-1.5">
+                  <GitMerge className="h-4 w-4 text-purple-600 dark:text-purple-400" aria-hidden="true" />
+                  Correlated Threat Intelligence ({correlationSummaries.length})
+                </span>
+                <span className="text-[10px] text-purple-600 dark:text-purple-400 font-mono">
+                  Multi-Domain Correlation
+                </span>
+              </div>
+              <ul className="space-y-1.5 list-none pl-0 pt-1">
+                {correlationSummaries.map((summaryText, idx) => (
+                  <li
+                    key={idx}
+                    className="rounded-lg border border-purple-500/30 bg-background/80 p-2 text-xs flex items-start gap-2"
+                  >
+                    <GitMerge className="h-3.5 w-3.5 text-purple-500 shrink-0 mt-0.5" aria-hidden="true" />
+                    <span className="text-foreground leading-normal break-words [overflow-wrap:anywhere]">
+                      {enforceCautiousLanguage(summaryText)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Analyzer Coverage & Pipeline Scope */}
+          {analyzerSummaries.length > 0 && (
+            <div className="rounded-lg border border-border/60 bg-muted/30 p-2.5 space-y-1.5">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+                <Layers className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+                <span>Analyzer Coverage & Intelligence Scope ({analyzerSummaries.length})</span>
+              </div>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {analyzerSummaries.map((cov, idx) => (
+                  <span
+                    key={idx}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-background border border-border/70 text-[11px] text-foreground font-medium"
+                  >
+                    <Layers className="h-3 w-3 text-muted-foreground" aria-hidden="true" />
+                    {cov}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Privacy Protections Applied */}
+          {privacyGuarantees.length > 0 && (
+            <div className="rounded-lg border border-sky-500/30 bg-sky-500/5 p-2.5 space-y-1.5">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-sky-700 dark:text-sky-300">
+                <Lock className="h-3.5 w-3.5 text-sky-600 dark:text-sky-400" aria-hidden="true" />
+                <span>Privacy Protections Applied ({privacyGuarantees.length})</span>
+              </div>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {privacyGuarantees.map((tag, idx) => (
+                  <span
+                    key={idx}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-background border border-sky-500/30 text-sky-700 dark:text-sky-300 text-[10px] font-medium"
+                  >
+                    <EyeOff className="h-3 w-3" aria-hidden="true" />
+                    {PRIVACY_TAG_LABELS[tag] || tag.replace(/_/g, ' ')}
+                  </span>
+                ))}
+              </div>
             </div>
           )}
 
@@ -770,6 +937,10 @@ export function SafetyAnalysisCard({ report, className, themeSlug, theme }: Safe
                   const secretClass = typeof f.metadata?.secretClass === 'string' ? f.metadata.secretClass : undefined;
                   const cat = categorizeFinding(f);
                   const catInfo = CATEGORY_META[cat];
+                  const consolidatedFinding = f as Partial<ConsolidatedFinding>;
+                  const targetEntity = consolidatedFinding.targetEntity;
+                  const observationCount = consolidatedFinding.observationCount;
+                  const sources = consolidatedFinding.sources || [];
 
                   return (
                     <li
@@ -782,6 +953,16 @@ export function SafetyAnalysisCard({ report, className, themeSlug, theme }: Safe
                             {catInfo.label}
                           </span>
                           <span className="break-words [overflow-wrap:anywhere]">{enforceCautiousLanguage(f.title)}</span>
+                          {targetEntity && (
+                            <span className="text-[10px] font-mono font-medium px-1.5 py-0.5 rounded bg-background border border-border text-foreground/80 shrink-0">
+                              {sanitizeSnippetSafely(targetEntity, 40)}
+                            </span>
+                          )}
+                          {typeof observationCount === 'number' && observationCount > 1 && (
+                            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-muted text-muted-foreground border border-border/40 shrink-0">
+                              {`${observationCount} signals consolidated`}
+                            </span>
+                          )}
                           {lineNum !== undefined && (
                             <span className="text-[10px] font-mono font-medium px-1.5 py-0.5 rounded bg-background border border-border text-foreground/80 shrink-0">
                               Line {lineNum}
@@ -798,6 +979,18 @@ export function SafetyAnalysisCard({ report, className, themeSlug, theme }: Safe
                         </span>
                       </div>
                       <p className="text-muted-foreground leading-normal break-words [overflow-wrap:anywhere]">{enforceCautiousLanguage(f.description)}</p>
+                      
+                      {sources.length > 0 && (
+                        <div className="flex items-center gap-1 flex-wrap text-[10px] text-muted-foreground pt-0.5">
+                          <span className="font-semibold">Observed across:</span>
+                          {sources.map((s, sIdx) => (
+                            <span key={sIdx} className="px-1.5 py-0.2 rounded bg-background/80 border border-border/50 uppercase font-mono text-[9px]">
+                              {s.origin.replace(/_/g, ' ')}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
                       {snippet && (
                         <div className="mt-0.5 font-mono text-[11px] bg-background/90 text-foreground/90 px-2.5 py-1.5 rounded border border-border/60 overflow-x-auto whitespace-pre">
                           <code>{String(snippet)}</code>
