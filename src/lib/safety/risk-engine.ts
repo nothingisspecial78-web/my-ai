@@ -82,17 +82,15 @@ export class RiskEngine {
       }
     }
 
+    // Check if this evaluation includes code security findings/analyzers
+    const isCodeAnalysis = analyzerResults.some(r => r.analyzerType === 'code_security');
+
     // Calculate deterministic risk score (0 - 100)
-    // Critical: 50 pts each
-    // High: 20 pts each
-    // Medium: 10 pts each
-    // Low: 3 pts each
-    // Info: 0 pts
-    let rawScore =
-      criticalCount * 50 +
-      highCount * 20 +
-      mediumCount * 10 +
-      lowCount * 3;
+    // For Code Intelligence: Critical: 40 pts, High: 25 pts, Medium: 10 pts, Low: 3 pts
+    // For URL/Scam/General Intelligence: Critical: 50 pts, High: 20 pts, Medium: 10 pts, Low: 3 pts
+    let rawScore = isCodeAnalysis
+      ? criticalCount * 40 + highCount * 25 + mediumCount * 10 + lowCount * 3
+      : criticalCount * 50 + highCount * 20 + mediumCount * 10 + lowCount * 3;
 
     // Guaranteed floor thresholds mapped to severity:
     // Any critical finding guarantees >= 50
@@ -278,7 +276,34 @@ export class RiskEngine {
         });
       }
 
-      if (f.type === 'suspicious_attachment' || f.type === 'dangerous_function') {
+      if (f.type === 'sql_injection_pattern') {
+        addRec({
+          action: 'use_parameterized_queries',
+          title: 'Use Parameterized Queries or Prepared Statements',
+          description: 'Never concatenate user input directly into SQL queries. Bind parameters using placeholders or query builder methods.',
+          priority: 'high',
+        });
+      }
+
+      if (f.type === 'command_injection_pattern') {
+        addRec({
+          action: 'avoid_shell_execution',
+          title: 'Avoid Unsanitized Shell Subprocess Execution',
+          description: 'Avoid passing user input to shell commands. Use argument vectors with execFile/spawn without shell=True, or utilize built-in APIs.',
+          priority: 'high',
+        });
+      }
+
+      if (f.type === 'dangerous_function') {
+        addRec({
+          action: 'avoid_dynamic_eval',
+          title: 'Avoid Dynamic Evaluation and Unsafe Deserialization',
+          description: 'Replace eval() or unsafe serialization formats (like pickle) with structured formats like JSON.parse().',
+          priority: 'high',
+        });
+      }
+
+      if (f.type === 'suspicious_attachment') {
         addRec({
           action: 'scan_file_before_opening',
           title: 'Avoid Opening or Executing Untrusted Files',

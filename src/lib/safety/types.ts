@@ -137,6 +137,9 @@ export type RecommendationAction =
   | 'seek_security_professional_help'
   | 'avoid_known_malicious_url'
   | 'verify_reported_threat'
+  | 'use_parameterized_queries'
+  | 'avoid_shell_execution'
+  | 'avoid_dynamic_eval'
   | 'proceed_with_caution'
   | 'no_action_needed';
 

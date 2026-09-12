@@ -12,7 +12,8 @@ import {
   ChevronDown,
   ChevronUp,
   Building2,
-  Zap
+  Zap,
+  Code2
 } from 'lucide-react';
 import { SafetyReport, RiskLevel } from '@/lib/safety/types';
 import { cn } from '@/lib/utils';
@@ -225,6 +226,44 @@ export function SafetyAnalysisCard({ report, className, themeSlug, theme }: Safe
             );
           })()}
 
+          {/* Code & Script Security Metadata (Phase 6.3) */}
+          {(() => {
+            const codeEvidence = (evidence || []).find(
+              e => e.sourceName === 'Static Code & Script Security Engine' || (e.data && 'language' in e.data)
+            );
+            if (!codeEvidence && report.inputType !== 'code') return null;
+
+            const language = (codeEvidence?.data?.language as string) || (report.inputType === 'code' ? 'Code' : null);
+            if (!language) return null;
+
+            const charCount = codeEvidence?.data?.characterCount as number | undefined;
+            const truncated = codeEvidence?.data?.truncated as boolean | undefined;
+
+            return (
+              <div className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-xs">
+                <div className="flex items-center gap-2">
+                  <Code2 className="h-4 w-4 text-muted-foreground shrink-0" aria-hidden="true" />
+                  <span className="font-semibold text-muted-foreground shrink-0">
+                    {isSecurity ? 'Analyzed Code Language:' : 'Code Language:'}
+                  </span>
+                  <span className="font-mono text-xs font-semibold uppercase px-2 py-0.5 rounded bg-background border border-border text-foreground">
+                    {language}
+                  </span>
+                  {truncated && (
+                    <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                      Truncated (50k limit)
+                    </span>
+                  )}
+                </div>
+                {typeof charCount === 'number' && (
+                  <span className="text-[11px] text-muted-foreground font-mono">
+                    {charCount.toLocaleString()} chars
+                  </span>
+                )}
+              </div>
+            );
+          })()}
+
           {/* Summary */}
           {summary && (
             <p className="text-xs text-muted-foreground leading-relaxed break-words [overflow-wrap:anywhere]">
@@ -240,20 +279,47 @@ export function SafetyAnalysisCard({ report, className, themeSlug, theme }: Safe
             </h4>
             {findings.length > 0 ? (
               <ul className="space-y-1.5 list-none pl-0">
-                {findings.map((f, i) => (
-                  <li
-                    key={i}
-                    className="rounded-lg border border-border/60 bg-muted/40 p-2.5 text-xs flex flex-col gap-1"
-                  >
-                    <div className="flex items-center justify-between font-semibold text-foreground flex-wrap gap-1">
-                      <span className="break-words [overflow-wrap:anywhere]">{f.title}</span>
-                      <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-background border border-border text-muted-foreground shrink-0">
-                        {f.severity}
-                      </span>
-                    </div>
-                    <p className="text-muted-foreground leading-normal break-words [overflow-wrap:anywhere]">{f.description}</p>
-                  </li>
-                ))}
+                {findings.map((f, i) => {
+                  const lineNum = typeof f.metadata?.lineNumber === 'number' ? f.metadata.lineNumber : undefined;
+                  const snippet = typeof f.metadata?.snippet === 'string'
+                    ? f.metadata.snippet
+                    : typeof f.metadata?.redactedSnippet === 'string'
+                    ? f.metadata.redactedSnippet
+                    : undefined;
+                  const secretClass = typeof f.metadata?.secretClass === 'string' ? f.metadata.secretClass : undefined;
+
+                  return (
+                    <li
+                      key={i}
+                      className="rounded-lg border border-border/60 bg-muted/40 p-2.5 text-xs flex flex-col gap-1.5"
+                    >
+                      <div className="flex items-center justify-between font-semibold text-foreground flex-wrap gap-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="break-words [overflow-wrap:anywhere]">{f.title}</span>
+                          {lineNum !== undefined && (
+                            <span className="text-[10px] font-mono font-medium px-1.5 py-0.5 rounded bg-background border border-border text-foreground/80 shrink-0">
+                              Line {lineNum}
+                            </span>
+                          )}
+                          {secretClass && (
+                            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 shrink-0">
+                              {secretClass}
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-background border border-border text-muted-foreground shrink-0">
+                          {f.severity}
+                        </span>
+                      </div>
+                      <p className="text-muted-foreground leading-normal break-words [overflow-wrap:anywhere]">{f.description}</p>
+                      {snippet && (
+                        <div className="mt-0.5 font-mono text-[11px] bg-background/90 text-foreground/90 px-2.5 py-1.5 rounded border border-border/60 overflow-x-auto whitespace-pre">
+                          <code>{String(snippet)}</code>
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             ) : (
               <p className="text-xs text-muted-foreground italic pl-1">

