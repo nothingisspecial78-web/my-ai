@@ -100,7 +100,7 @@ export function redactSensitiveText(text: string): string {
 
   // 2. Redact passwords in text
   sanitized = sanitized.replace(/\b(password|passwd|pwd)\s*=\s*([^\s&,;.]+)/gi, '$1=[REDACTED]');
-  sanitized = sanitized.replace(/\b(password|passwd|pwd)\s+(?:is|:)\s*([^\s,;.]+)/gi, '$1 is [REDACTED]');
+  sanitized = sanitized.replace(/\b(password|passwd|pwd)\s*(?:is\s*:?|:)\s*([^\s,;.]+)/gi, '$1 is [REDACTED]');
 
   // 3. Redact OTP / Verification code numbers (4 to 8 digits following keyword)
   sanitized = sanitized.replace(

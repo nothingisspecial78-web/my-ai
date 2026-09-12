@@ -17,8 +17,10 @@ import { UrlAnalyzer } from '@/lib/safety/analyzers/url-analyzer';
 import {
   isTextAnalyzableAttachment,
   isPdfAttachment,
+  isImageAttachment,
   loadAttachmentContent,
 } from '@/lib/attachments';
+import { imageEngine } from '@/lib/safety/image';
 
 const urlAnalyzer = new UrlAnalyzer();
 
@@ -77,6 +79,28 @@ export class SafetySecurityAnalyzer implements ThemeAnalyzer {
       if (isPdfAttachment(att)) {
         hasPdf = true;
         reports.push(this.buildPdfReport(att));
+        continue;
+      }
+
+      if (isImageAttachment(att)) {
+        try {
+          const imageReport = await imageEngine.analyzeAttachment(att);
+          if (imageReport.status === 'failed') {
+            failedAttachments.push(att.original_name || 'image');
+          }
+          reports.push(imageReport);
+        } catch (imgErr: unknown) {
+          const errorMsg = imgErr instanceof Error ? imgErr.message : 'Image inspection error';
+          const filename = att.original_name || 'image';
+          failedAttachments.push(filename);
+          reports.push(imageEngine.buildFailedReport(
+            crypto.randomUUID(),
+            filename,
+            `Image "${filename}" could not be retrieved: ${errorMsg}`,
+            new Date().toISOString(),
+            errorMsg
+          ));
+        }
         continue;
       }
 
@@ -275,6 +299,7 @@ export class SafetySecurityAnalyzer implements ThemeAnalyzer {
       if (rep.inputType === 'code') dominantInputType = 'code';
       else if (dominantInputType !== 'code' && rep.inputType === 'document') dominantInputType = 'document';
       else if (dominantInputType !== 'code' && dominantInputType !== 'document' && rep.inputType === 'website') dominantInputType = 'website';
+      else if (dominantInputType !== 'code' && dominantInputType !== 'document' && dominantInputType !== 'website' && rep.inputType === 'image') dominantInputType = 'image';
 
       allFindings.push(...rep.findings);
       allEvidence.push(...rep.evidence);
@@ -319,6 +344,9 @@ export class SafetySecurityAnalyzer implements ThemeAnalyzer {
       if (hasFailures) {
         summary += ` Note: ${failedAttachments.join(', ')} could not be retrieved.`;
       }
+    } else if (dominantInputType === 'image') {
+      const imageRep = reports.find(r => r.inputType === 'image');
+      summary = imageRep?.summary || 'Image inspection completed with no Stage 7.2 structural or textual issues detected.';
     } else if (hasPdf) {
       summary = `Attached document${totalAttachments > 1 ? 's' : ''} detected. Deep inspection is processed via conversation document streaming.`;
     } else {

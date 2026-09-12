@@ -31,6 +31,7 @@ export type AnalyzerType =
   | 'qr'
   | 'image_ai'
   | 'image_manipulation'
+  | 'image'
   | 'document'
   | 'file'
   | 'email'
