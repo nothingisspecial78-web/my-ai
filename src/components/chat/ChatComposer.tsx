@@ -18,6 +18,7 @@ export function ChatComposer({ onSend, disabled, enterToSend = true }: ChatCompo
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -442,11 +443,93 @@ async function optimizeImageForUpload(file: File): Promise<File | Blob> {
         disabled={isUploading}
       />
 
-      <div className={cn(
-        "relative flex flex-col w-full rounded-[24px] border border-[var(--theme-composer-border)] bg-[var(--theme-card)] shadow-[0_4px_24px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)] transition-all focus-within:ring-2 focus-within:ring-theme-composer-focus focus-within:border-theme-border focus-within:shadow-[0_8px_32px_rgba(0,0,0,0.08)] dark:focus-within:shadow-[0_8px_32px_rgba(0,0,0,0.3)] p-2",
-        disabled && "opacity-60 cursor-not-allowed"
-      )}>
-        
+      {/* Quick Action Category Pills */}
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-2 scrollbar-none px-1 text-xs">
+        <button
+          type="button"
+          onClick={() => {
+            setContent("Check this link for phishing and reputation risks: ");
+            textareaRef.current?.focus();
+          }}
+          disabled={disabled}
+          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 text-slate-700 dark:text-slate-300 hover:border-cyan-500 hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors shrink-0 shadow-2xs focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
+        >
+          <span>🔗</span>
+          <span className="font-medium">Check Link</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setContent("Check this message for scam and urgency cues: ");
+            textareaRef.current?.focus();
+          }}
+          disabled={disabled}
+          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 text-slate-700 dark:text-slate-300 hover:border-cyan-500 hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors shrink-0 shadow-2xs focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
+        >
+          <span>💬</span>
+          <span className="font-medium">Check Message</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => imageInputRef.current?.click()}
+          disabled={disabled || isUploading}
+          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 text-slate-700 dark:text-slate-300 hover:border-cyan-500 hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors shrink-0 shadow-2xs focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
+        >
+          <span>📱</span>
+          <span className="font-medium">Scan QR</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setContent("Audit this code for security vulnerabilities and secrets:\n```\n\n```");
+            textareaRef.current?.focus();
+          }}
+          disabled={disabled}
+          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 text-slate-700 dark:text-slate-300 hover:border-cyan-500 hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors shrink-0 shadow-2xs focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
+        >
+          <span>💻</span>
+          <span className="font-medium">Audit Code</span>
+        </button>
+      </div>
+
+      <div
+        onDragOver={(e) => {
+          e.preventDefault();
+          if (!disabled) setIsDraggingOver(true);
+        }}
+        onDragLeave={() => setIsDraggingOver(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setIsDraggingOver(false);
+          if (disabled || isUploading) return;
+          if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            const fakeEvent = { target: { files: e.dataTransfer.files, value: '' } } as unknown as React.ChangeEvent<HTMLInputElement>;
+            handleFileUpload(fakeEvent);
+          }
+        }}
+        className={cn(
+          "relative flex flex-col w-full rounded-[24px] border border-[var(--theme-composer-border)] bg-[var(--theme-card)] shadow-[0_4px_24px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)] transition-all focus-within:ring-2 focus-within:ring-theme-composer-focus focus-within:border-theme-border focus-within:shadow-[0_8px_32px_rgba(0,0,0,0.08)] dark:focus-within:shadow-[0_8px_32px_rgba(0,0,0,0.3)] p-2",
+          isDraggingOver && "border-cyan-500 ring-2 ring-cyan-500/40 bg-cyan-500/5",
+          disabled && "opacity-60 cursor-not-allowed"
+        )}
+      >
+        {/* Drag & Drop Over Affordance */}
+        {isDraggingOver && (
+          <div className="absolute inset-0 z-50 flex flex-col items-center justify-center rounded-[22px] bg-slate-900/90 text-cyan-400 backdrop-blur-xs border-2 border-dashed border-cyan-500 pointer-events-none p-4 text-center">
+            <Paperclip size={24} className="mb-2 animate-bounce" />
+            <span className="font-bold text-sm">Drop screenshot, QR image, or file here</span>
+            <span className="text-xs text-slate-400 mt-0.5 font-mono">Before You Click will analyze risks before you interact</span>
+          </div>
+        )}
+
+        {/* Link / URL Detected Notice */}
+        {/https?:\/\/[^\s]+/i.test(content) && (
+          <div className="px-4 pt-1.5 pb-0 flex items-center gap-1.5 text-[11px] font-mono text-cyan-600 dark:text-cyan-400">
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-cyan-500" />
+            <span>URL detected — automated reputation, domain lookalike, and phishing checks active</span>
+          </div>
+        )}
+
         {/* Attachments Preview Area */}
         {(attachments.length > 0 || isUploading || uploadError) && (
           <div className="flex flex-wrap items-center gap-2.5 px-4 pt-3 pb-1">
@@ -640,8 +723,8 @@ async function optimizeImageForUpload(file: File): Promise<File | Blob> {
           </div>
         </div>
       </div>
-      <div className="mt-3 text-center text-xs text-gray-400 dark:text-gray-500">
-        Before You Click can make mistakes. Check important info.
+      <div className="mt-3 text-center text-xs text-gray-400 dark:text-gray-500 font-mono">
+        Pause. Check. Understand. Then Click. · Before You Click Digital Safety Companion
       </div>
     </div>
   );

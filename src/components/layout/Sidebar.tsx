@@ -98,6 +98,14 @@ export function Sidebar({ initialConversations = [], initialCursor = null }: { i
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [conversations, setConversations] = useState<Conversation[]>(initialConversations);
   const [cursor, setCursor] = useState<string | null>(initialCursor);
+
+  const [prevInitialConversations, setPrevInitialConversations] = useState(initialConversations);
+
+  if (prevInitialConversations !== initialConversations) {
+    setPrevInitialConversations(initialConversations);
+    setConversations(initialConversations);
+    setCursor(initialCursor);
+  }
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isCreating] = useState(false);
   

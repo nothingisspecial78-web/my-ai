@@ -160,6 +160,52 @@ export async function createConversation(title: string, theme_id?: string): Prom
   return data;
 }
 
+export async function createConversationWithMessage(params: {
+  title: string;
+  theme_id?: string;
+  content: string;
+  metadata?: Database['public']['Tables']['messages']['Insert']['metadata'];
+}): Promise<{ conversation: Conversation; message: Message } | null> {
+  const supabase = (await createClient()) as SupabaseClient<Database>;
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) return null;
+
+  const { data: conversation, error: convoError } = await supabase
+    .from('conversations')
+    .insert({
+      user_id: user.id,
+      title: params.title,
+      theme_id: params.theme_id || null,
+    })
+    .select()
+    .single();
+
+  if (convoError || !conversation) {
+    console.error('Error creating conversation:', convoError);
+    return null;
+  }
+
+  const { data: message, error: msgError } = await supabase
+    .from('messages')
+    .insert({
+      conversation_id: conversation.id,
+      user_id: user.id,
+      role: 'user',
+      content: params.content,
+      metadata: params.metadata || {},
+    })
+    .select()
+    .single();
+
+  if (msgError || !message) {
+    console.error('Error creating initial message:', msgError);
+    return null;
+  }
+
+  return { conversation, message };
+}
+
 export async function updateConversation(conversationId: string, updates: Partial<Database['public']['Tables']['conversations']['Update']>): Promise<Conversation | null> {
   
   const supabase = (await createClient()) as SupabaseClient<Database>;
