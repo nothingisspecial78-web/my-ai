@@ -133,7 +133,7 @@ export class SocialEngineeringAnalyzer {
           severity: 'high',
           weight: 25,
           title: 'Requests One-Time Password (OTP) or PIN',
-          description: 'The message pressures the recipient to provide an authentication code, OTP, or PIN. Legitimate organizations never request OTPs.',
+          description: 'The message pressures the recipient to provide an authentication code, OTP, or PIN. Banks and legitimate services generally do not ask customers to disclose one-time passwords through unsolicited messages.',
           evidenceSnippet: match[0],
           dedupGroup: 'otp_solicitation',
         });
@@ -160,7 +160,7 @@ export class SocialEngineeringAnalyzer {
             severity: 'high',
             weight: 25,
             title: 'Recovery Phrase or Private Key Solicitation',
-            description: 'The communication involves requesting, providing, or entering a cryptocurrency recovery phrase, seed phrase, or private key. Legitimate platforms and support representatives never ask for these.',
+            description: 'The communication involves requesting, providing, or entering a cryptocurrency recovery phrase, seed phrase, or private key. Reputable platforms and support staff generally should not ask for recovery phrases or private keys.',
             evidenceSnippet: (text.match(this.RECOVERY_PHRASE_TERMS) || ['recovery phrase'])[0],
             dedupGroup: 'crypto_key_solicitation',
           });

@@ -186,7 +186,7 @@ export class RiskEngine {
         addRec({
           action: 'never_share_recovery_phrase',
           title: 'Never Share Recovery or Seed Phrases',
-          description: 'Legitimate support, services, or administrators will never ask for your recovery phrase or private key. Disclosing it grants irreversible control over your assets.',
+          description: 'Reputable platforms and support staff generally should not ask for recovery phrases or private keys. Disclosing them grants complete and irreversible control over digital assets.',
           priority: 'high',
         });
       }
@@ -228,7 +228,7 @@ export class RiskEngine {
         addRec({
           action: 'verify_financial_claim',
           title: 'Do Not Send Funds or Pay Upfront Fees',
-          description: 'Legitimate lotteries and organizations never ask for processing fees or gift cards to release winnings or services.',
+          description: 'Legitimate lotteries and organizations typically do not ask for processing fees or gift cards to release winnings or services.',
           priority: 'high',
         });
       }
@@ -237,7 +237,7 @@ export class RiskEngine {
         addRec({
           action: 'do_not_pay_advance_fee',
           title: 'Do Not Pay Upfront Employment Fees',
-          description: 'Legitimate employers never demand registration fees, task security deposits, or upfront payments for job placement.',
+          description: 'Legitimate employers typically do not demand registration fees, task security deposits, or upfront payments for job placement.',
           priority: 'high',
         });
       }

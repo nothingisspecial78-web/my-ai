@@ -612,5 +612,22 @@ describe('Phase 4.7: Safety Checkup MVP Test Suite', () => {
       expect(formatted).toContain('statistically common in fraudulent URLs');
       expect(formatted).toContain('security vendors confirmed this is safe');
     });
+
+    it('14. Gemini formatting instructions enforce calibrated language without absolute organizational claims', async () => {
+      const rawText = 'URGENT! Your SBI account will be blocked today. Verify your account immediately by clicking this link: https://paypa1-security-verification.xyz/login. Send the OTP you receive to complete verification.';
+      const report = await SafetyService.analyze({ rawContent: rawText });
+
+      // Risk classification and score are preserved strictly as CRITICAL
+      expect(report.riskLevel).toBe('critical');
+      expect(report.score).toBeGreaterThanOrEqual(50);
+
+      const formatted = SafetyService.formatForGemini(report);
+      expect(formatted).toContain('CALIBRATED RISK LANGUAGE & PROHIBITION OF ABSOLUTE ORGANIZATIONAL CLAIMS');
+      expect(formatted).toContain('Banks generally do not ask customers to disclose OTPs through unsolicited messages');
+      expect(formatted).toContain('strong phishing indicator');
+      expect(formatted).toContain('Observed evidence in the message');
+      expect(formatted).toContain('Reasonable security interpretation');
+      expect(formatted).not.toContain('Legitimate organizations never request OTPs');
+    });
   });
 });

@@ -295,7 +295,7 @@ export class ScamEngine {
       recommendations.push({
         action: 'never_share_recovery_phrase',
         title: 'Never Share Recovery or Seed Phrases',
-        description: 'Legitimate support, services, or administrators will never ask for your recovery phrase or private key. Disclosing it grants irreversible control over your assets.',
+        description: 'Reputable platforms and support staff generally should not ask for recovery phrases or private keys. Disclosing them grants complete and irreversible control over digital assets.',
         priority: 'high',
       });
     }
@@ -303,7 +303,7 @@ export class ScamEngine {
       recommendations.push({
         action: 'do_not_share_otp',
         title: 'Never Share Authentication Codes',
-        description: 'Never disclose OTPs, PINs, passwords, or recovery phrases to anyone, including customer support.',
+        description: 'Avoid disclosing OTPs, PINs, passwords, or recovery phrases through unsolicited messages or unverified links.',
         priority: 'high',
       });
     }
@@ -311,7 +311,7 @@ export class ScamEngine {
       recommendations.push({
         action: 'verify_financial_claim',
         title: 'Do Not Pay to Claim Winnings',
-        description: 'Legitimate lotteries and sweepstakes never require processing fees or advance deposits to release rewards.',
+        description: 'Legitimate lotteries and sweepstakes typically do not require processing fees or advance deposits to release rewards.',
         priority: 'high',
       });
     }
@@ -319,7 +319,7 @@ export class ScamEngine {
       recommendations.push({
         action: 'do_not_pay_advance_fee',
         title: 'Do Not Pay Upfront Fees',
-        description: 'Legitimate employers and established couriers do not require upfront deposits or transfer fees via unusual channels.',
+        description: 'Legitimate employers and established couriers typically do not require upfront deposits or transfer fees via unusual channels.',
         priority: 'high',
       });
     }
