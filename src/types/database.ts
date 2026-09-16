@@ -282,6 +282,87 @@ export interface Database {
         }
         Relationships: []
       }
+      user_google_sheets_integrations: {
+        Row: {
+          id: string
+          user_id: string
+          status: 'connected' | 'disconnected' | 'revoked' | 'error'
+          spreadsheet_id: string | null
+          spreadsheet_name: string | null
+          sheet_name: string
+          encrypted_refresh_token: string | null
+          token_iv: string | null
+          token_tag: string | null
+          last_synced_at: string | null
+          last_error: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          status?: 'connected' | 'disconnected' | 'revoked' | 'error'
+          spreadsheet_id?: string | null
+          spreadsheet_name?: string | null
+          sheet_name?: string
+          encrypted_refresh_token?: string | null
+          token_iv?: string | null
+          token_tag?: string | null
+          last_synced_at?: string | null
+          last_error?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          status?: 'connected' | 'disconnected' | 'revoked' | 'error'
+          spreadsheet_id?: string | null
+          spreadsheet_name?: string | null
+          sheet_name?: string
+          encrypted_refresh_token?: string | null
+          token_iv?: string | null
+          token_tag?: string | null
+          last_synced_at?: string | null
+          last_error?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      safety_analysis_exports: {
+        Row: {
+          id: string
+          user_id: string
+          analysis_id: string
+          destination: string
+          spreadsheet_id: string
+          sheet_name: string
+          status: string
+          exported_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          analysis_id: string
+          destination?: string
+          spreadsheet_id: string
+          sheet_name: string
+          status?: string
+          exported_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          analysis_id?: string
+          destination?: string
+          spreadsheet_id?: string
+          sheet_name?: string
+          status?: string
+          exported_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

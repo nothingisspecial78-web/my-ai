@@ -138,6 +138,22 @@ export async function POST(req: NextRequest) {
             } catch (saveErr) {
               console.error('Failed to persist safety analysis:', saveErr);
             }
+
+            // Optional external telemetry export (isolated, fail-safe, non-blocking)
+            if (userId && safetyReport) {
+              try {
+                const { exportReportToGoogleSheets } = await import('@/lib/integrations/google-sheets/exporter');
+                exportReportToGoogleSheets(
+                  safetyReport,
+                  userId,
+                  activeTheme.slug
+                ).catch((sheetErr) => {
+                  console.warn('[ChatRoute] Background Google Sheets export caught:', sheetErr);
+                });
+              } catch (importErr) {
+                console.warn('[ChatRoute] Google Sheets exporter instantiation error:', importErr);
+              }
+            }
           }
         }
       }
@@ -298,9 +314,7 @@ export async function POST(req: NextRequest) {
   } finally {
     // Safety: release lock if we exit before the stream takes ownership
     // or if an error occurred before stream creation
-    if (lockToken && typeof streamTookOwnership === 'undefined') {
-      await releaseGenerationLock(userId as string, conversationId as string, lockToken);
-    } else if (lockToken && !streamTookOwnership) {
+    if (lockToken && !streamTookOwnership) {
       await releaseGenerationLock(userId as string, conversationId as string, lockToken);
     }
   }

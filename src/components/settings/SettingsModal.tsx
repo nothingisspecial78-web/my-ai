@@ -7,6 +7,8 @@ import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { updateProfile } from '@/lib/database';
 import { useChatPreferences } from '@/hooks/use-chat-preferences';
+import { IntegrationsSettingsTab } from './IntegrationsSettingsTab';
+import { FileSpreadsheet } from 'lucide-react';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -14,7 +16,7 @@ interface SettingsModalProps {
 }
 
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
-  const [activeTab, setActiveTab] = useState<'account' | 'appearance' | 'chat' | 'about'>('account');
+  const [activeTab, setActiveTab] = useState<'account' | 'appearance' | 'chat' | 'integrations' | 'about'>('account');
   const { theme, setTheme } = useTheme();
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [fullName, setFullName] = useState('');
@@ -122,6 +124,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             <TabButton active={activeTab === 'account'} onClick={() => setActiveTab('account')} icon={User} label="Account" id="tab-account" panelId="panel-account" />
             <TabButton active={activeTab === 'appearance'} onClick={() => setActiveTab('appearance')} icon={Palette} label="Appearance" id="tab-appearance" panelId="panel-appearance" />
             <TabButton active={activeTab === 'chat'} onClick={() => setActiveTab('chat')} icon={MessageSquare} label="Chat" id="tab-chat" panelId="panel-chat" />
+            <TabButton active={activeTab === 'integrations'} onClick={() => setActiveTab('integrations')} icon={FileSpreadsheet} label="Integrations" id="tab-integrations" panelId="panel-integrations" />
             <TabButton active={activeTab === 'about'} onClick={() => setActiveTab('about')} icon={Info} label="About" id="tab-about" panelId="panel-about" />
           </nav>
         </div>
@@ -235,6 +238,10 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   />
                 </div>
               </div>
+            )}
+
+            {activeTab === 'integrations' && (
+              <IntegrationsSettingsTab />
             )}
 
             {activeTab === 'about' && (
