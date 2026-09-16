@@ -78,6 +78,30 @@ export async function releaseGenerationLock(userId: string, conversationId: stri
   }
 }
 
+/**
+ * Force-release a generation lock for a given user+conversation.
+ * Used for stale lock recovery when the owner knows no generation is active.
+ * Only the authenticated owner should be allowed to call this (enforced at the route level).
+ */
+export async function forceReleaseGenerationLock(userId: string, conversationId: string): Promise<boolean> {
+  const key = lockKey(userId, conversationId);
+
+  try {
+    const redis = await getRedis();
+    if (redis) {
+      const deleted = await redis.del(key);
+      return deleted > 0;
+    }
+  } catch (err) {
+    console.warn('Generation lock force-release: Redis unavailable, using local fallback', err instanceof Error ? err.message : err);
+  }
+
+  // Local memory fallback
+  const existed = activeLocks.has(key);
+  activeLocks.delete(key);
+  return existed;
+}
+
 /** For testing: reset all locks */
 export async function resetAllLocks(): Promise<void> {
   activeLocks.clear();

@@ -209,7 +209,7 @@ export function ChatClient({ conversation, initialMessages, theme }: ChatClientP
     abortControllerRef.current = new AbortController();
 
     try {
-      const response = await fetch('/api/chat', {
+      let response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -220,16 +220,54 @@ export function ChatClient({ conversation, initialMessages, theme }: ChatClientP
       });
 
       if (!response.ok) {
-        let errMsg = 'Failed to generate response';
-        try {
-          const errJson = await response.json();
-          if (errJson.error) errMsg = errJson.error;
-        } catch {
-          // If not JSON, try text
-          const errText = await response.text();
-          if (errText) errMsg = errText;
+        // Handle stale lock: force-release and retry once
+        if (response.status === 409) {
+          try {
+            await fetch('/api/chat/unlock', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ conversationId: conversation.id }),
+            });
+          } catch {
+            // Unlock request failed, continue to retry anyway
+          }
+
+          // Retry the original request once
+          const retryResponse = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              conversationId: conversation.id,
+              regenerateMessageId: isRegen ? regenerateMessageId : undefined,
+            }),
+            signal: abortControllerRef.current?.signal,
+          });
+
+          if (retryResponse.ok) {
+            // Replace response reference for stream processing below
+            response = retryResponse;
+          } else {
+            let errMsg = 'Failed to generate response';
+            try {
+              const errJson = await retryResponse.json();
+              if (errJson.error) errMsg = errJson.error;
+            } catch {
+              const errText = await retryResponse.text();
+              if (errText) errMsg = errText;
+            }
+            throw new Error(errMsg);
+          }
+        } else {
+          let errMsg = 'Failed to generate response';
+          try {
+            const errJson = await response.json();
+            if (errJson.error) errMsg = errJson.error;
+          } catch {
+            const errText = await response.text();
+            if (errText) errMsg = errText;
+          }
+          throw new Error(errMsg);
         }
-        throw new Error(errMsg);
       }
 
       setIsThinking(false);

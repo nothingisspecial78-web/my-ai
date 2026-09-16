@@ -1,4 +1,4 @@
-import { acquireGenerationLock, releaseGenerationLock, resetAllLocks } from './generation-lock';
+import { acquireGenerationLock, releaseGenerationLock, forceReleaseGenerationLock, resetAllLocks } from './generation-lock';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 describe('Generation Lock', () => {
@@ -73,4 +73,41 @@ describe('Generation Lock', () => {
     expect(newToken).not.toBe(token);
     vi.useRealTimers();
   });
+
+  describe('forceReleaseGenerationLock', () => {
+    it('force-releases a held lock regardless of token', async () => {
+      const token = await acquireGenerationLock('user-5', 'conv-5');
+      expect(token).toBeTruthy();
+
+      // Force release without knowing the token
+      const released = await forceReleaseGenerationLock('user-5', 'conv-5');
+      expect(released).toBe(true);
+
+      // Should be able to acquire again
+      const newToken = await acquireGenerationLock('user-5', 'conv-5');
+      expect(newToken).toBeTruthy();
+    });
+
+    it('returns false when no lock exists', async () => {
+      const released = await forceReleaseGenerationLock('user-6', 'conv-6');
+      expect(released).toBe(false);
+    });
+
+    it('does not affect locks for other user+conversation pairs', async () => {
+      await acquireGenerationLock('user-7', 'conv-7');
+      await acquireGenerationLock('user-7', 'conv-8');
+
+      // Force release only conv-7
+      await forceReleaseGenerationLock('user-7', 'conv-7');
+
+      // conv-7 should be free
+      const token7 = await acquireGenerationLock('user-7', 'conv-7');
+      expect(token7).toBeTruthy();
+
+      // conv-8 should still be locked
+      const token8 = await acquireGenerationLock('user-7', 'conv-8');
+      expect(token8).toBeNull();
+    });
+  });
 });
+
